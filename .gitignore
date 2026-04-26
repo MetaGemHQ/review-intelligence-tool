@@ -6,6 +6,9 @@ data/
 
 # Claude Code local session/tooling state
 .claude/
+
+# Local-only project conventions file
+CLAUDE.md
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]
