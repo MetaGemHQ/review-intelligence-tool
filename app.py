@@ -2,7 +2,7 @@ from dotenv import load_dotenv
 from flask import Flask, jsonify, request
 
 from db import init_db
-from services import topic_service
+from services import review_service, topic_service
 from services.topic_service import ValidationError
 
 load_dotenv()
@@ -33,6 +33,29 @@ def create_topic():
 @app.route("/topics", methods=["GET"])
 def list_topics():
     return jsonify(topic_service.list_topics())
+
+
+@app.route("/reviews", methods=["POST"])
+def create_review():
+    body = request.get_json(silent=True) or {}
+    try:
+        review = review_service.add_review(
+            topic_id=body.get("topic_id"),
+            review_text=body.get("review_text"),
+            source=body.get("source"),
+        )
+    except ValidationError as e:
+        return jsonify({"error": str(e)}), 400
+    return jsonify(review), 201
+
+
+@app.route("/topics/<int:topic_id>/reviews", methods=["GET"])
+def list_reviews(topic_id):
+    try:
+        reviews = review_service.list_reviews(topic_id)
+    except ValidationError as e:
+        return jsonify({"error": str(e)}), 404
+    return jsonify(reviews), 200
 
 
 if __name__ == "__main__":
