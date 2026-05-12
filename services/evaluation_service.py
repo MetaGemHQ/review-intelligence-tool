@@ -35,11 +35,11 @@ def evaluate_topic(topic_id):
         )
 
         client = get_client()
-        response = client.chat.completions.create(
+        response = client.responses.create(
             model=MODEL,
-            messages=[{"role": "user", "content": prompt}],
+            input=prompt,
         )
-        summary = response.choices[0].message.content
+        summary = response.output_text
     finally:
         conn.close()
 
