@@ -88,13 +88,31 @@ Expected: `404 Not Found`, `Topic 99999 not found`.
 
 ## POST /topics/<topic_id>/evaluate: Run AI evaluation
 
-Sends the topic's reviews (capped at 20) to the OpenAI Responses API and returns a summary of the main themes. Uses `gpt-4o-mini`.
+Sends the topic's reviews (capped at 20) to the OpenAI Responses API and returns a structured evaluation of the reviews. Uses `gpt-4o-mini` with Structured Outputs.
 
 ```bash
 curl.exe -X POST http://127.0.0.1:5000/topics/1/evaluate
 ```
 
-Expected: `200 OK` with `{topic_id, topic_name, review_count, model, summary}`.
+Expected: `200 OK` with `{topic_id, topic_name, review_count, model, evaluation}`. The `evaluation` object is a typed structured response with five fields:
+
+```json
+{
+  "topic_id": 1,
+  "topic_name": "Acme Corp",
+  "review_count": 5,
+  "model": "gpt-4o-mini",
+  "evaluation": {
+    "overall_sentiment": "positive",
+    "rating": 4,
+    "short_summary": "Customers are largely satisfied with the product.",
+    "long_summary": "Reviewers praise the build quality and value, with a few noting slow support response times.",
+    "key_themes": ["build quality", "value for money", "support response time"]
+  }
+}
+```
+
+`overall_sentiment` is one of `positive`, `negative`, `mixed`, `neutral`. `rating` is an integer from 1 to 5. `key_themes` is a list of 3 to 7 strings.
 
 Error cases:
 

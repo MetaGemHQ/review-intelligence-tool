@@ -1,3 +1,7 @@
+from typing import Literal
+
+from pydantic import BaseModel
+
 from config import get_config
 from db import get_connection
 from repositories import review_repo, topic_repo
@@ -5,6 +9,14 @@ from services.openai_client import get_client
 from services.topic_service import ValidationError
 
 MODEL = "gpt-4o-mini"
+
+
+class ReviewEvaluation(BaseModel):
+    overall_sentiment: Literal["positive", "negative", "mixed", "neutral"]
+    rating: int
+    short_summary: str
+    long_summary: str
+    key_themes: list[str]
 
 
 def evaluate_topic(topic_id):
@@ -28,18 +40,24 @@ def evaluate_topic(topic_id):
             f"{i}. {r['review_text']}" for i, r in enumerate(capped_reviews, start=1)
         )
         prompt = (
-            f'Here are customer reviews about "{topic_name}". '
-            "Summarize the main themes in a few sentences.\n\n"
+            f'You are analyzing customer reviews about "{topic_name}". '
+            "Produce a structured evaluation with the following:\n"
+            "- overall_sentiment: one of positive, negative, mixed, or neutral\n"
+            "- rating: an integer from 1 to 5 representing the average customer sentiment\n"
+            "- short_summary: a single sentence executive summary\n"
+            "- long_summary: a paragraph with more detail\n"
+            "- key_themes: a list of 3 to 7 recurring themes across the reviews\n\n"
             "Reviews:\n"
             f"{numbered}"
         )
 
         client = get_client()
-        response = client.responses.create(
+        response = client.responses.parse(
             model=MODEL,
             input=prompt,
+            text_format=ReviewEvaluation,
         )
-        summary = response.output_text
+        evaluation = response.output_parsed
     finally:
         conn.close()
 
@@ -48,5 +66,5 @@ def evaluate_topic(topic_id):
         "topic_name": topic_name,
         "review_count": len(capped_reviews),
         "model": MODEL,
-        "summary": summary,
+        "evaluation": evaluation.model_dump(),
     }
