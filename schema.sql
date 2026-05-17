@@ -14,3 +14,23 @@ CREATE TABLE IF NOT EXISTS reviews (
     submitted_at TEXT NOT NULL DEFAULT (datetime('now')),
     FOREIGN KEY (topic_id) REFERENCES topics(id)
 );
+
+CREATE TABLE IF NOT EXISTS evaluation_runs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    topic_id INTEGER NOT NULL,
+    review_ids TEXT NOT NULL,
+    model_used TEXT NOT NULL,
+    prompt_version TEXT NOT NULL,
+    prompt_technique TEXT NOT NULL,
+    temperature REAL,
+    status TEXT NOT NULL DEFAULT 'pending',
+    started_at TEXT NOT NULL DEFAULT (datetime('now')),
+    completed_at TEXT,
+    input_tokens INTEGER,
+    output_tokens INTEGER,
+    latency_ms INTEGER,
+    total_cost REAL,
+    result_json TEXT,
+    error_message TEXT,
+    FOREIGN KEY (topic_id) REFERENCES topics(id)
+);

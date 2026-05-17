@@ -88,20 +88,28 @@ Expected: `404 Not Found`, `Topic 99999 not found`.
 
 ## POST /topics/<topic_id>/evaluate: Run AI evaluation
 
-Sends the topic's reviews (capped at 20) to the OpenAI Responses API and returns a structured evaluation of the reviews. Uses `gpt-4o-mini` with Structured Outputs.
+Sends the topic's reviews (capped at 20) to the OpenAI Responses API and returns a structured evaluation of the reviews. Uses `gpt-4o-mini` with Structured Outputs. Every call writes one row to `evaluation_runs` for the comparison-table audit trail (model, prompt version + technique, temperature, token usage, latency, cost, and the full structured result blob).
 
 ```bash
 curl.exe -X POST http://127.0.0.1:5000/topics/1/evaluate
 ```
 
-Expected: `200 OK` with `{topic_id, topic_name, review_count, model, evaluation}`. The `evaluation` object is a typed structured response with five fields:
+Expected: `200 OK` with the run metadata + the typed evaluation:
 
 ```json
 {
+  "run_id": 1,
   "topic_id": 1,
   "topic_name": "Acme Corp",
   "review_count": 5,
   "model": "gpt-4o-mini",
+  "temperature": 1.0,
+  "prompt_version": "sentiment_v1",
+  "prompt_technique": "zero-shot",
+  "input_tokens": 2724,
+  "output_tokens": 171,
+  "latency_ms": 8525,
+  "total_cost": 0.0005112,
   "evaluation": {
     "overall_sentiment": "positive",
     "rating": 4,
@@ -112,7 +120,7 @@ Expected: `200 OK` with `{topic_id, topic_name, review_count, model, evaluation}
 }
 ```
 
-`overall_sentiment` is one of `positive`, `negative`, `mixed`, `neutral`. `rating` is an integer from 1 to 5. `key_themes` is a list of 3 to 7 strings.
+`overall_sentiment` is one of `positive`, `negative`, `mixed`, `neutral`. `rating` is an integer from 1 to 5. `key_themes` is a list of 3 to 7 strings. `total_cost` is in USD, computed from a price-per-million-tokens table in the service (gpt-4o-mini: $0.150 input, $0.600 output as of 2026-05). When the OpenAI call fails, the pending run row is updated to `status='failed'` with the error message before the HTTP error is raised.
 
 Error cases:
 
