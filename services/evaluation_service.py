@@ -10,6 +10,7 @@ from repositories import evaluation_repo, review_repo, topic_repo
 from services import prompts
 from services.openai_client import get_client as get_openai_client
 from services.gemini_client import get_client as get_gemini_client
+from services.anthropic_client import get_client as get_anthropic_client
 from services.topic_service import ValidationError
 
 DEFAULT_MODEL = "gpt-4o-mini"
@@ -25,6 +26,8 @@ MODEL_PROVIDER = {
     "gemini-2.5-flash-lite": "gemini",
     "gemini-2.0-flash": "gemini",
     "gemini-2.5-pro": "gemini",
+    "claude-haiku-4-5-20251001": "anthropic",
+    "claude-sonnet-4-6": "anthropic",
 }
 
 # USD per 1M tokens. OpenAI mini figures are confirmed; the rest are list
@@ -39,6 +42,8 @@ PRICE_PER_MTOK = {
     "gemini-2.5-flash-lite": {"input": 0.100, "output": 0.400},
     "gemini-2.0-flash": {"input": 0.100, "output": 0.400},
     "gemini-2.5-pro": {"input": 1.250, "output": 10.000},
+    "claude-haiku-4-5-20251001": {"input": 1.000, "output": 5.000},
+    "claude-sonnet-4-6": {"input": 3.000, "output": 15.000},
 }
 
 
@@ -96,12 +101,37 @@ def _call_gemini(model, prompt, temperature):
     return evaluation.model_dump(), input_tokens, output_tokens
 
 
+def _call_anthropic(model, prompt, temperature):
+    client = get_anthropic_client()
+    tool = {
+        "name": "record_evaluation",
+        "description": "Record the structured evaluation of the reviews.",
+        "input_schema": ReviewEvaluation.model_json_schema(),
+    }
+    response = client.messages.create(
+        model=model,
+        max_tokens=1024,
+        temperature=temperature,
+        tools=[tool],
+        tool_choice={"type": "tool", "name": "record_evaluation"},
+        messages=[{"role": "user", "content": prompt}],
+    )
+    tool_block = next(b for b in response.content if b.type == "tool_use")
+    evaluation = ReviewEvaluation.model_validate(tool_block.input)
+    usage = response.usage
+    input_tokens = getattr(usage, "input_tokens", None)
+    output_tokens = getattr(usage, "output_tokens", None)
+    return evaluation.model_dump(), input_tokens, output_tokens
+
+
 def _call_model(model, prompt, temperature):
     provider = MODEL_PROVIDER.get(model)
     if provider == "openai":
         return _call_openai(model, prompt, temperature)
     if provider == "gemini":
         return _call_gemini(model, prompt, temperature)
+    if provider == "anthropic":
+        return _call_anthropic(model, prompt, temperature)
     raise ValidationError(f"Unknown model: {model}")
 
 

@@ -20,12 +20,15 @@ load_dotenv()
 from services import evaluation_service as es
 from services import prompts
 
-# Free-tier lineup: both models ran 100% clean and incur no billing.
-# Heavier Gemini tiers (2.5-flash, 2.0-flash, 2.5-pro) are quota-limited on the
-# free tier and were dropped to keep the matrix billing-free and reproducible.
+# Three model families. The OpenAI + Gemini models run on free tiers; the
+# Claude models draw on prepaid Anthropic credits (a few cents per full matrix).
+# Heavier Gemini tiers (2.5-flash, 2.0-flash, 2.5-pro) stay out: quota-limited
+# on the free tier.
 MODELS = [
     "gpt-4o-mini",
     "gemini-2.5-flash-lite",
+    "claude-haiku-4-5-20251001",
+    "claude-sonnet-4-6",
 ]
 TECHNIQUES = list(prompts.TECHNIQUES)
 
