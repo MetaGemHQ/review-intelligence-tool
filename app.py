@@ -2,7 +2,7 @@ from dotenv import load_dotenv
 from flask import Flask, jsonify, request
 
 from db import init_db
-from services import evaluation_service, review_service, topic_service
+from services import chat_service, evaluation_service, review_service, topic_service
 from services.review_service import ReviewRejected
 from services.topic_service import ValidationError
 
@@ -59,6 +59,16 @@ def list_reviews(topic_id):
     except ValidationError as e:
         return jsonify({"error": str(e)}), 404
     return jsonify(reviews), 200
+
+
+@app.route("/v1/chat", methods=["POST"])
+def chat_v1():
+    body = request.get_json(silent=True) or {}
+    message = body.get("message")
+    if not isinstance(message, str) or not message.strip():
+        return jsonify({"error": "message is required and must be a non-empty string"}), 400
+    result = chat_service.chat(message.strip())
+    return jsonify(result), 200
 
 
 @app.route("/topics/<int:topic_id>/evaluate", methods=["POST"])

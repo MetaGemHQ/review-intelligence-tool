@@ -147,3 +147,23 @@ curl.exe -X POST http://127.0.0.1:5000/topics/3/evaluate
 ```
 
 Expected: `400 Bad Request`, `Topic 3 has no reviews to evaluate` (when the topic exists but has zero reviews).
+
+## POST /v1/chat: Evaluation Agent (single message)
+
+Milestone 1 of the Evaluation Agent. Send one natural-language message. The model (gpt-4o-mini with function calling) decides whether to call the `evaluate_topic` tool: if the message names a topic id, it runs the evaluation flow and summarises the result in plain language; if not, it asks for the topic id. No conversation history yet (that is milestone 2).
+
+```bash
+curl.exe -X POST http://127.0.0.1:5000/v1/chat ^
+  -H "Content-Type: application/json" ^
+  -d "{\"message\": \"Please evaluate the reviews for topic 4.\"}"
+```
+
+Expected: `200 OK` with `{"reply": "<plain-language summary>", "tool_used": true, "evaluation": {<structured evaluation>}}`.
+
+When no topic id is given, the agent does not guess: `{"reply": "Please provide the topic id...", "tool_used": false, "evaluation": null}`. When the named topic exists but has no reviews, the tool runs, the evaluation flow reports it, and the agent relays it gracefully (`tool_used: true`, `evaluation: null`).
+
+```bash
+curl.exe -X POST http://127.0.0.1:5000/v1/chat -H "Content-Type: application/json" -d "{\"message\": \"\"}"
+```
+
+Expected: `400 Bad Request`, `message is required and must be a non-empty string`.
