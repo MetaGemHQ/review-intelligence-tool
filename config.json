@@ -1,4 +1,5 @@
 {
     "max_reviews_per_batch": 20,
-    "max_review_chars": 1000
+    "max_review_chars": 1000,
+    "review_validation_enabled": true
 }

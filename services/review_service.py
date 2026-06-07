@@ -1,7 +1,12 @@
 from config import get_config
 from db import get_connection
 from repositories import review_repo, topic_repo
+from services import review_validator
 from services.topic_service import ValidationError
+
+
+class ReviewRejected(ValidationError):
+    """The candidate text is not a genuine review for this topic."""
 
 
 def _row_to_dict(row):
@@ -33,7 +38,8 @@ def add_review(topic_id, review_text, source=None):
 
     conn = get_connection()
     try:
-        if topic_repo.get_topic_by_id(conn, topic_id) is None:
+        topic = topic_repo.get_topic_by_id(conn, topic_id)
+        if topic is None:
             raise ValidationError(f"Topic {topic_id} not found")
 
         existing = review_repo.get_reviews_by_topic(conn, topic_id)
@@ -41,6 +47,18 @@ def add_review(topic_id, review_text, source=None):
             raise ValidationError(
                 f"Topic {topic_id} is at capacity ({max_reviews} reviews max)"
             )
+
+        if config.get("review_validation_enabled", True):
+            verdict = review_validator.validate_review(review_text, topic["name"])
+            if not verdict.is_review:
+                raise ReviewRejected(
+                    verdict.reason or "Submitted text does not look like a customer review"
+                )
+            if not verdict.is_relevant:
+                raise ReviewRejected(
+                    verdict.reason
+                    or f"Review does not appear relevant to '{topic['name']}'"
+                )
 
         new_id = review_repo.create_review(conn, topic_id, review_text, source)
         conn.commit()

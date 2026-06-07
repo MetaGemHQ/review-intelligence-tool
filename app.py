@@ -3,6 +3,7 @@ from flask import Flask, jsonify, request
 
 from db import init_db
 from services import evaluation_service, review_service, topic_service
+from services.review_service import ReviewRejected
 from services.topic_service import ValidationError
 
 load_dotenv()
@@ -44,6 +45,8 @@ def create_review():
             review_text=body.get("review_text"),
             source=body.get("source"),
         )
+    except ReviewRejected as e:
+        return jsonify({"error": str(e), "rejected": True}), 422
     except ValidationError as e:
         return jsonify({"error": str(e)}), 400
     return jsonify(review), 201
