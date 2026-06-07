@@ -71,6 +71,16 @@ def chat_v1():
     return jsonify(result), 200
 
 
+@app.route("/v2/chat/<thread_id>", methods=["POST"])
+def chat_v2(thread_id):
+    body = request.get_json(silent=True) or {}
+    message = body.get("message")
+    if not isinstance(message, str) or not message.strip():
+        return jsonify({"error": "message is required and must be a non-empty string"}), 400
+    result = chat_service.chat_threaded(thread_id, message.strip())
+    return jsonify(result), 200
+
+
 @app.route("/topics/<int:topic_id>/evaluate", methods=["POST"])
 def evaluate_topic(topic_id):
     try:

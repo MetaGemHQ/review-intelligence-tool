@@ -167,3 +167,23 @@ curl.exe -X POST http://127.0.0.1:5000/v1/chat -H "Content-Type: application/jso
 ```
 
 Expected: `400 Bad Request`, `message is required and must be a non-empty string`.
+
+## POST /v2/chat/<thread_id>: Evaluation Agent (threaded, with history)
+
+Milestone 2 of the Evaluation Agent. Same function-calling behaviour as `/v1/chat`, but the conversation is a thread: each turn is saved to the `chat_messages` table, and the full prior history of the thread is loaded into the prompt before the model responds. This lets the agent resolve context across turns (e.g. asking for a topic id in one turn and getting it in the next). The thread id is any string in the URL; a new id starts a fresh thread.
+
+```bash
+curl.exe -X POST http://127.0.0.1:5000/v2/chat/my-thread-1 ^
+  -H "Content-Type: application/json" ^
+  -d "{\"message\": \"Can you evaluate a topic for me?\"}"
+```
+
+Expected: `200 OK` with `{"thread_id": "my-thread-1", "reply": "Please provide the topic id...", "tool_used": false, "evaluation": null, "message_count": 2}`. A follow-up call to the same thread id supplies the missing piece and the agent runs the evaluation using the earlier context:
+
+```bash
+curl.exe -X POST http://127.0.0.1:5000/v2/chat/my-thread-1 ^
+  -H "Content-Type: application/json" ^
+  -d "{\"message\": \"Yes, topic 4.\"}"
+```
+
+Expected: `200 OK`, `tool_used: true`, `message_count: 4`, with the structured `evaluation`. Only clean user and assistant turns are stored; the intermediate tool-call plumbing is transient. An empty message returns `400` as in `/v1/chat`.

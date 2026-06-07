@@ -1,9 +1,13 @@
-"""Evaluation Agent, milestone 1: a single-message chat endpoint.
+"""Evaluation Agent.
 
-The user sends one message. The model decides whether to call the
+The user sends a message. The model decides whether to call the
 `evaluate_topic` tool: if the message names a topic id, it runs the existing
 evaluation flow and explains the result in plain language; if not, it replies
-asking for what is missing. No conversation history yet (that is milestone 2).
+asking for what is missing.
+
+- milestone 1: `chat` (single message, no history).
+- milestone 2: `chat_threaded` (a conversation thread whose history is loaded
+  from and persisted to the database around each turn).
 
 Follows Stavros's guidance: OpenAI chat-completions with function calling, a
 plain branch on whether a tool was called, and two model calls in the tool
@@ -12,6 +16,8 @@ branch (one to get the call, one to turn the tool result into a reply).
 
 import json
 
+from db import get_connection
+from repositories import chat_repo
 from services import evaluation_service
 from services.openai_client import get_client
 from services.topic_service import ValidationError
@@ -65,13 +71,14 @@ def _run_tool(topic_id):
     return result, payload
 
 
-def chat(message):
-    client = get_client()
-    messages = [
-        {"role": "system", "content": SYSTEM_PROMPT},
-        {"role": "user", "content": message},
-    ]
+def _run_turn(messages):
+    """Run one agent turn over a full message list (system + prior turns).
 
+    Returns (reply_text, tool_used, evaluation). The tool-plumbing messages
+    (the assistant turn carrying tool_calls and the tool result) are transient
+    to this call and are not part of what callers persist.
+    """
+    client = get_client()
     first = client.chat.completions.create(
         model=CHAT_MODEL,
         messages=messages,
@@ -83,13 +90,13 @@ def chat(message):
     tool_calls = choice.tool_calls or []
 
     if not tool_calls:
-        return {"reply": choice.content, "tool_used": False, "evaluation": None}
+        return choice.content, False, None
 
     call = tool_calls[0]
     args = json.loads(call.function.arguments or "{}")
     result, tool_payload = _run_tool(args.get("topic_id"))
 
-    messages.append(
+    convo = messages + [
         {
             "role": "assistant",
             "content": choice.content,
@@ -103,23 +110,59 @@ def chat(message):
                     },
                 }
             ],
-        }
-    )
-    messages.append(
-        {
-            "role": "tool",
-            "tool_call_id": call.id,
-            "content": json.dumps(tool_payload),
-        }
-    )
-
+        },
+        {"role": "tool", "tool_call_id": call.id, "content": json.dumps(tool_payload)},
+    ]
     second = client.chat.completions.create(
         model=CHAT_MODEL,
-        messages=messages,
+        messages=convo,
         temperature=TEMPERATURE,
     )
+    return (
+        second.choices[0].message.content,
+        True,
+        result["evaluation"] if result else None,
+    )
+
+
+def chat(message):
+    messages = [
+        {"role": "system", "content": SYSTEM_PROMPT},
+        {"role": "user", "content": message},
+    ]
+    reply, tool_used, evaluation = _run_turn(messages)
+    return {"reply": reply, "tool_used": tool_used, "evaluation": evaluation}
+
+
+def chat_threaded(thread_id, message):
+    """Milestone 2: persist the turn and carry the thread's history.
+
+    Saves the incoming user message, loads the full thread from the database,
+    runs the turn with that history in the prompt, then persists the reply
+    before returning. Only clean user/assistant turns are stored; the tool
+    plumbing stays transient.
+    """
+    conn = get_connection()
+    try:
+        chat_repo.save_message(conn, thread_id, "user", message)
+        conn.commit()
+
+        history = chat_repo.get_messages_by_thread(conn, thread_id)
+        messages = [{"role": "system", "content": SYSTEM_PROMPT}] + [
+            {"role": row["role"], "content": row["content"]} for row in history
+        ]
+
+        reply, tool_used, evaluation = _run_turn(messages)
+
+        chat_repo.save_message(conn, thread_id, "assistant", reply or "")
+        conn.commit()
+    finally:
+        conn.close()
+
     return {
-        "reply": second.choices[0].message.content,
-        "tool_used": True,
-        "evaluation": result["evaluation"] if result else None,
+        "thread_id": thread_id,
+        "reply": reply,
+        "tool_used": tool_used,
+        "evaluation": evaluation,
+        "message_count": len(history) + 1,
     }
