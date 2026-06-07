@@ -17,20 +17,33 @@ branch (one to get the call, one to turn the tool result into a reply).
 import json
 
 from db import get_connection
-from repositories import chat_repo
+from repositories import chat_repo, topic_repo
 from services import evaluation_service
 from services.openai_client import get_client
 from services.topic_service import ValidationError
 
 CHAT_MODEL = "gpt-4o-mini"
 TEMPERATURE = 0.0
+MAX_TOOL_ITERS = 5
 
 SYSTEM_PROMPT = (
-    "You are the assistant for a Review Intelligence Tool. You can evaluate the "
-    "customer reviews stored under a topic. When the user gives a topic id, call "
-    "the evaluate_topic tool with that id. If no topic id is provided, do not "
-    "guess one: ask the user to provide the topic id. After an evaluation, give a "
-    "short, plain-language summary of what the reviews say."
+    "You are the assistant for a Review Intelligence Tool. You evaluate the "
+    "customer reviews stored under a topic.\n"
+    "- If the user gives a topic id, call evaluate_topic with that id.\n"
+    "- If the user names a topic (a company or product) instead of an id, call "
+    "find_topics_by_name to look it up. The name may be partial or misspelled.\n"
+    "  - No matches: say so and ask the user to rephrase or add a topic.\n"
+    "  - Several matches: list them and ask which one.\n"
+    "  - One match: always confirm it with the user and wait for their reply "
+    "before evaluating, even when the user's message sounded like a request to "
+    "analyze (e.g. reply 'I found \"X\". Evaluate it?' and stop there for this turn).\n"
+    "- Once the user has confirmed a topic (e.g. said yes) or gave an id directly, "
+    "evaluate it now and do NOT ask again. A topic id is only valid from the "
+    "user's direct input or a find_topics_by_name result in the current turn, so "
+    "if the confirmed topic was found in an earlier turn, silently call "
+    "find_topics_by_name again to re-resolve its id, then call evaluate_topic. "
+    "Never reuse an id from an earlier turn or invent one.\n"
+    "- After an evaluation, give a short, plain-language summary of what the reviews say."
 )
 
 EVALUATE_TOOL = {
@@ -55,8 +68,33 @@ EVALUATE_TOOL = {
     },
 }
 
+FIND_TOPICS_TOOL = {
+    "type": "function",
+    "function": {
+        "name": "find_topics_by_name",
+        "description": (
+            "Look up topics whose name matches the given text (partial or "
+            "approximate allowed). Returns candidate topics with their ids so the "
+            "right one can be confirmed before evaluating."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string",
+                    "description": "The topic name or fragment to search for.",
+                }
+            },
+            "required": ["name"],
+            "additionalProperties": False,
+        },
+    },
+}
 
-def _run_tool(topic_id):
+TOOLS = [EVALUATE_TOOL, FIND_TOPICS_TOOL]
+
+
+def _run_evaluate(topic_id):
     """Invoke the evaluation flow and shape a result the model can summarise."""
     try:
         result = evaluation_service.evaluate_topic(topic_id)
@@ -71,58 +109,91 @@ def _run_tool(topic_id):
     return result, payload
 
 
+def _find_topics(name):
+    """Fuzzy-look up topics by name for the agent to confirm."""
+    if not isinstance(name, str) or not name.strip():
+        return {"candidates": []}
+    conn = get_connection()
+    try:
+        rows = topic_repo.search_topics_by_name(conn, name.strip())
+    finally:
+        conn.close()
+    return {
+        "candidates": [
+            {"id": r["id"], "name": r["name"], "category": r["category"]}
+            for r in rows
+        ]
+    }
+
+
+def _dispatch_tool(name, args):
+    """Run one tool call and return the JSON-string result plus any evaluation."""
+    if name == "evaluate_topic":
+        result, payload = _run_evaluate(args.get("topic_id"))
+        evaluation = result["evaluation"] if result else None
+        return json.dumps(payload), evaluation
+    if name == "find_topics_by_name":
+        return json.dumps(_find_topics(args.get("name"))), None
+    return json.dumps({"error": f"unknown tool: {name}"}), None
+
+
 def _run_turn(messages):
     """Run one agent turn over a full message list (system + prior turns).
 
-    Returns (reply_text, tool_used, evaluation). The tool-plumbing messages
-    (the assistant turn carrying tool_calls and the tool result) are transient
+    Loops: the model may call tools (look up a topic, then evaluate it), and we
+    feed each tool result back until it returns a plain-text reply. Returns
+    (reply_text, tool_used, evaluation). The tool-plumbing messages are transient
     to this call and are not part of what callers persist.
     """
     client = get_client()
-    first = client.chat.completions.create(
-        model=CHAT_MODEL,
-        messages=messages,
-        tools=[EVALUATE_TOOL],
-        tool_choice="auto",
-        temperature=TEMPERATURE,
-    )
-    choice = first.choices[0].message
-    tool_calls = choice.tool_calls or []
+    convo = list(messages)
+    tool_used = False
+    evaluation = None
 
-    if not tool_calls:
-        return choice.content, False, None
+    for _ in range(MAX_TOOL_ITERS):
+        response = client.chat.completions.create(
+            model=CHAT_MODEL,
+            messages=convo,
+            tools=TOOLS,
+            tool_choice="auto",
+            temperature=TEMPERATURE,
+        )
+        choice = response.choices[0].message
+        tool_calls = choice.tool_calls or []
 
-    call = tool_calls[0]
-    args = json.loads(call.function.arguments or "{}")
-    result, tool_payload = _run_tool(args.get("topic_id"))
+        if not tool_calls:
+            return choice.content, tool_used, evaluation
 
-    convo = messages + [
-        {
-            "role": "assistant",
-            "content": choice.content,
-            "tool_calls": [
-                {
-                    "id": call.id,
-                    "type": "function",
-                    "function": {
-                        "name": call.function.name,
-                        "arguments": call.function.arguments,
-                    },
-                }
-            ],
-        },
-        {"role": "tool", "tool_call_id": call.id, "content": json.dumps(tool_payload)},
-    ]
-    second = client.chat.completions.create(
-        model=CHAT_MODEL,
-        messages=convo,
-        temperature=TEMPERATURE,
+        tool_used = True
+        convo.append(
+            {
+                "role": "assistant",
+                "content": choice.content,
+                "tool_calls": [
+                    {
+                        "id": c.id,
+                        "type": "function",
+                        "function": {
+                            "name": c.function.name,
+                            "arguments": c.function.arguments,
+                        },
+                    }
+                    for c in tool_calls
+                ],
+            }
+        )
+        for c in tool_calls:
+            args = json.loads(c.function.arguments or "{}")
+            content, this_eval = _dispatch_tool(c.function.name, args)
+            if this_eval is not None:
+                evaluation = this_eval
+            convo.append({"role": "tool", "tool_call_id": c.id, "content": content})
+
+    # Safety net: tool loop did not converge; force a plain reply without tools.
+    final = client.chat.completions.create(
+        model=CHAT_MODEL, messages=convo, temperature=TEMPERATURE
     )
-    return (
-        second.choices[0].message.content,
-        True,
-        result["evaluation"] if result else None,
-    )
+    return final.choices[0].message.content, tool_used, evaluation
 
 
 def chat(message):

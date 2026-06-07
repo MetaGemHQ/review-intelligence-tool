@@ -19,3 +19,17 @@ def get_topic_by_id(conn, topic_id):
         "FROM topics WHERE id = ?",
         (topic_id,),
     ).fetchone()
+
+
+def search_topics_by_name(conn, name):
+    """Fuzzy name lookup for the agent: substring match, ranked exact >
+    prefix > substring, then shorter names first. LIKE is case-insensitive
+    for ASCII in SQLite."""
+    return conn.execute(
+        "SELECT id, name, category, created_by, created_at FROM topics "
+        "WHERE name LIKE ? "
+        "ORDER BY CASE "
+        "WHEN name = ? COLLATE NOCASE THEN 0 "
+        "WHEN name LIKE ? THEN 1 ELSE 2 END, length(name)",
+        (f"%{name}%", name, f"{name}%"),
+    ).fetchall()

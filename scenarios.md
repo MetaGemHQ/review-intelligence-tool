@@ -187,3 +187,19 @@ curl.exe -X POST http://127.0.0.1:5000/v2/chat/my-thread-1 ^
 ```
 
 Expected: `200 OK`, `tool_used: true`, `message_count: 4`, with the structured `evaluation`. Only clean user and assistant turns are stored; the intermediate tool-call plumbing is transient. An empty message returns `400` as in `/v1/chat`.
+
+### Topic lookup by name (milestone 3)
+
+The agent also has a `find_topics_by_name` tool, so the user can refer to a topic by name (partial or approximate) instead of an id. The model looks the name up, and:
+- one match: confirms it with the user and waits before evaluating;
+- several matches: lists them and asks which one;
+- no match: says so and asks the user to rephrase.
+
+A topic id is only trusted from the user's direct input or a lookup in the current turn, so when the user confirms a topic discussed in an earlier turn, the agent re-resolves the id before evaluating. Example over a thread:
+
+```bash
+curl.exe -X POST http://127.0.0.1:5000/v2/chat/find-1 -H "Content-Type: application/json" -d "{\"message\": \"Analyze the Notion reviews.\"}"
+curl.exe -X POST http://127.0.0.1:5000/v2/chat/find-1 -H "Content-Type: application/json" -d "{\"message\": \"Yes, that one.\"}"
+```
+
+First call: `tool_used: true`, `evaluation: null`, reply like `I found "Notion (Trustpilot)". Evaluate it?`. Second call: re-resolves the id and returns the structured `evaluation`.
