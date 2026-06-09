@@ -123,6 +123,21 @@ _VALIDATION_OUTRO = (
 )
 
 
+def build_breakdown_prompt(topic_name, numbered_reviews):
+    return (
+        f'You are analyzing customer reviews about "{topic_name}" for a dashboard.\n'
+        "Do two things:\n"
+        "1. per_review: for EACH numbered review below, in the SAME ORDER, give its "
+        "rating (an integer 1 to 5) and sentiment (one of positive, negative, mixed, "
+        "neutral). Return exactly one entry per numbered review.\n"
+        "2. themes: list the recurring themes across the reviews. For each theme give "
+        "its polarity (positive or negative) and count = how many of the reviews raise "
+        "it. Use a positive polarity for themes customers praise and negative for "
+        "themes they complain about.\n"
+        f"\nReviews:\n{numbered_reviews}"
+    )
+
+
 def build_validation_prompt(topic_name, review_text, strictness=DEFAULT_RELEVANCE_LEVEL):
     relevance_rule = _RELEVANCE_RULES.get(strictness, _RELEVANCE_RULES[DEFAULT_RELEVANCE_LEVEL])
     instructions = (

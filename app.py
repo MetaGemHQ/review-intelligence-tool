@@ -2,7 +2,7 @@ from dotenv import load_dotenv
 from flask import Flask, jsonify, request
 
 from db import init_db
-from services import chat_service, evaluation_service, review_service, topic_service
+from services import breakdown_service, chat_service, evaluation_service, review_service, topic_service
 from services.review_service import ReviewRejected
 from services.topic_service import ValidationError
 
@@ -86,6 +86,17 @@ def chat_v2(thread_id):
 def evaluate_topic(topic_id):
     try:
         result = evaluation_service.evaluate_topic(topic_id)
+    except ValidationError as e:
+        message = str(e)
+        status = 404 if "not found" in message else 400
+        return jsonify({"error": message}), status
+    return jsonify(result), 200
+
+
+@app.route("/topics/<int:topic_id>/breakdown", methods=["POST"])
+def breakdown_topic(topic_id):
+    try:
+        result = breakdown_service.run_breakdown(topic_id)
     except ValidationError as e:
         message = str(e)
         status = 404 if "not found" in message else 400

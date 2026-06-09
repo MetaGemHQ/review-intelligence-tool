@@ -88,6 +88,23 @@ CSS = """
   .ri-bub.u{ background:linear-gradient(135deg,rgba(139,92,255,.32),rgba(255,92,176,.24));color:#f3eefe;margin-left:auto;border-bottom-right-radius:4px }
   .ri-bub.a{ background:rgba(255,255,255,.06);color:#d4d7f0;border-bottom-left-radius:4px }
   .stButton>button{ border-radius:10px;font-weight:600 }
+
+  .donut-wrap{ display:flex;align-items:center;gap:24px;margin-top:4px }
+  .donut{ width:128px;height:128px;border-radius:50%;display:grid;place-items:center;position:relative;flex:none }
+  .donut::after{ content:"";width:84px;height:84px;background:#11132a;border-radius:50% }
+  .donut .dc{ position:absolute;text-align:center } .donut .dc b{ font-size:20px;font-weight:800;display:block;color:#fff } .donut .dc span{ font-size:10.5px;color:#8b90b5 }
+  .legend{ display:flex;flex-direction:column;gap:10px;font-size:13px;color:#c7cbe6 }
+  .legend .li{ display:flex;align-items:center;gap:9px } .legend .sw{ width:11px;height:11px;border-radius:3px } .legend b{ margin-left:auto;color:#fff }
+  .bars{ display:flex;flex-direction:column;gap:10px;margin-top:4px }
+  .bars .bar{ display:flex;align-items:center;gap:10px;font-size:12px;color:#8b90b5 }
+  .bars .lab{ width:26px;text-align:right } .bars .val{ width:26px;text-align:right;color:#fff;font-weight:700 }
+  .bars .track{ flex:1;height:9px;background:rgba(255,255,255,.07);border-radius:6px;overflow:hidden }
+  .bars .fill{ height:100%;border-radius:6px;background:linear-gradient(90deg,#8b5cff,#ff5cb0) }
+  .themebars{ display:flex;flex-direction:column;gap:12px;margin-top:2px }
+  .themebars .th .h{ display:flex;justify-content:space-between;font-size:12.5px;font-weight:600;color:#eef0fb;margin-bottom:6px }
+  .themebars .th .h span{ color:#5d628a;font-weight:500 }
+  .themebars .th .track{ height:7px;background:rgba(255,255,255,.07);border-radius:6px;overflow:hidden }
+  .themebars .th .fill{ height:100%;border-radius:6px }
 </style>
 """
 st.markdown(CSS, unsafe_allow_html=True)
@@ -126,6 +143,51 @@ def stars(rating):
     return "&#9733;" * n + "&#9734;" * (5 - n)
 
 
+SENT_COLOR = {"positive": "#2dd4a7", "negative": "#ff5c7a", "mixed": "#ffb84d", "neutral": "#8b90b5"}
+
+
+def build_donut(counts):
+    total = sum(counts.values()) or 1
+    stops, acc, legend = [], 0.0, ""
+    for name in ["negative", "mixed", "neutral", "positive"]:
+        c = counts.get(name, 0)
+        if not c:
+            continue
+        pct = c / total * 100
+        stops.append(f"{SENT_COLOR[name]} {acc:.1f}% {acc + pct:.1f}%")
+        acc += pct
+        legend += (f'<div class="li"><span class="sw" style="background:{SENT_COLOR[name]}"></span>'
+                   f'{name.capitalize()} <b>{round(pct)}%</b></div>')
+    gradient = ", ".join(stops) or "#8b90b5 0 100%"
+    dom = max(counts, key=lambda k: counts[k])
+    dom_pct = round(counts.get(dom, 0) / total * 100)
+    return (f'<div class="donut-wrap"><div class="donut" style="background:conic-gradient({gradient})">'
+            f'<div class="dc"><b>{dom_pct}%</b><span>{esc(dom)}</span></div></div>'
+            f'<div class="legend">{legend}</div></div>')
+
+
+def build_rating_bars(counts):
+    mx = max(counts.values()) or 1
+    rows = ""
+    for n in range(5, 0, -1):
+        c = counts.get(str(n), 0)
+        rows += (f'<div class="bar"><span class="lab">{n}&#9733;</span>'
+                 f'<div class="track"><div class="fill" style="width:{c / mx * 100:.0f}%"></div></div>'
+                 f'<span class="val">{c}</span></div>')
+    return f'<div class="bars">{rows}</div>'
+
+
+def build_theme_bars(items, color):
+    if not items:
+        return '<p class="hint">None identified.</p>'
+    mx = max((i["count"] for i in items), default=1) or 1
+    rows = ""
+    for i in items[:5]:
+        rows += (f'<div class="th"><div class="h">{esc(i["theme"])} <span>{i["count"]}</span></div>'
+                 f'<div class="track"><div class="fill" style="width:{i["count"] / mx * 100:.0f}%;background:{color}"></div></div></div>')
+    return f'<div class="themebars">{rows}</div>'
+
+
 def shutdown_app():
     """Stop the API, then stop this UI process (same effect as the stop link)."""
     api_pid = None
@@ -147,6 +209,7 @@ def shutdown_app():
 # ----------------------------------------------------------------- sidebar
 st.session_state.setdefault("base_url", DEFAULT_BASE)
 st.session_state.setdefault("evals", {})
+st.session_state.setdefault("breakdowns", {})
 st.session_state.setdefault("chat", {})
 
 st.sidebar.markdown('<div class="ri-brand"><div class="logo">RI</div> Review Intelligence</div>', unsafe_allow_html=True)
@@ -194,17 +257,23 @@ def render_dashboard(topic):
 
     cols = st.columns([2, 6])
     if cols[0].button("Run evaluation", type="primary", disabled=n_reviews == 0, use_container_width=True):
-        with st.spinner("Evaluating reviews..."):
+        with st.spinner("Analyzing reviews..."):
             r = api_post(f"/topics/{tid}/evaluate")
+            b = api_post(f"/topics/{tid}/breakdown")
+        ok = True
         if r.status_code == 200:
             st.session_state["evals"][tid] = r.json()
-            st.rerun()
         else:
-            try:
-                st.error(r.json().get("error", r.text))
-            except ValueError:
-                st.error(r.text)
+            ok = False
+            st.error(f"Evaluation failed: {r.text}")
+        if b.status_code == 200:
+            st.session_state["breakdowns"][tid] = b.json()
+        elif r.status_code == 200:
+            st.warning(f"Charts unavailable: {b.text}")
+        if ok:
+            st.rerun()
     ev = st.session_state["evals"].get(tid)
+    bd = st.session_state["breakdowns"].get(tid)
 
     # verdict strip
     if ev:
@@ -248,16 +317,16 @@ def render_dashboard(topic):
         unsafe_allow_html=True,
     )
 
-    # summary + themes
-    if ev:
-        e = ev["evaluation"]
-        themes_html = "".join(f'<span class="t">{esc(t)}</span>' for t in e.get("key_themes", []))
+    # sentiment donut + rating distribution, then pain points + positive drivers
+    if bd:
         st.markdown(
             f'''<div class="ri-row">
-              <div class="ri-card" style="flex:1.4"><h3>Summary</h3><p class="hint">What the reviews say overall</p>
-                <p class="ri-sum"><span class="short">{esc(e["short_summary"])}</span>{esc(e["long_summary"])}</p></div>
-              <div class="ri-card"><h3>Key themes</h3><p class="hint">Recurring topics across the reviews</p>
-                <div class="ri-themes">{themes_html}</div></div>
+              <div class="ri-card"><h3>Sentiment breakdown</h3><p class="hint">Share of reviews by overall tone</p>{build_donut(bd["sentiment_counts"])}</div>
+              <div class="ri-card"><h3>Rating distribution</h3><p class="hint">How the {bd["review_count"]} reviews score the brand</p>{build_rating_bars(bd["rating_counts"])}</div>
+            </div>
+            <div class="ri-row">
+              <div class="ri-card"><h3 style="color:#ff5c7a">Top pain points</h3><p class="hint">Recurring negative themes</p>{build_theme_bars(bd["pain_points"], "#ff5c7a")}</div>
+              <div class="ri-card"><h3 style="color:#2dd4a7">Positive drivers</h3><p class="hint">What happy customers mention</p>{build_theme_bars(bd["positive_drivers"], "#2dd4a7")}</div>
             </div>''',
             unsafe_allow_html=True,
         )

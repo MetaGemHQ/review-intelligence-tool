@@ -159,6 +159,16 @@ curl.exe -X POST http://127.0.0.1:5000/topics/3/evaluate
 
 Expected: `400 Bad Request`, `Topic 3 has no reviews to evaluate` (when the topic exists but has zero reviews).
 
+## POST /topics/<topic_id>/breakdown: Per-review breakdown for the dashboard
+
+Returns the per-review data the dashboard charts need, which the aggregate evaluation does not provide: a sentiment distribution, a rating distribution, and theme counts split into pain points and positive drivers. One `gpt-4o-mini` structured call scores each review (rating + sentiment) and tallies recurring themes by polarity; the counts are computed server-side and aligned to the number of reviews stored. Read-only (nothing is persisted).
+
+```bash
+curl.exe -X POST http://127.0.0.1:5000/topics/4/breakdown
+```
+
+Expected: `200 OK` with `{"review_count": 20, "sentiment_counts": {"positive": .., "negative": .., "mixed": .., "neutral": ..}, "rating_counts": {"1": .., ..., "5": ..}, "pain_points": [{"theme": "..", "count": ..}], "positive_drivers": [{"theme": "..", "count": ..}]}`. Returns `404` if the topic is missing and `400` if it has no reviews.
+
 ## POST /v1/chat: Evaluation Agent (single message)
 
 Milestone 1 of the Evaluation Agent. Send one natural-language message. The model (gpt-4o-mini with function calling) decides whether to call the `evaluate_topic` tool: if the message names a topic id, it runs the evaluation flow and summarises the result in plain language; if not, it asks for the topic id. No conversation history yet (that is milestone 2).
