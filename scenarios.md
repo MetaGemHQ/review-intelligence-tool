@@ -53,7 +53,7 @@ Expected: `200 OK` with a JSON array (possibly empty).
 
 ## POST /reviews: Add a review to a topic
 
-Adds one review to an existing topic. Cap is 20 reviews per topic and 1000 characters per review (configured in `config.json`).
+Adds one review to an existing topic. Cap is 20 reviews per topic and 5000 characters per review (configured in `config.json`).
 
 Before the review is stored, an AI validation gate checks the candidate text (gpt-4o-mini, structured boolean output). It decides two things: `is_review` (is this a genuine customer review at all?) and `is_relevant` (does it concern this topic?). The `is_review` check is a hard gate for every topic and rejects junk, fabricated, or off-form input and prompt-injection payloads disguised as reviews. The `is_relevant` bar is tuned per topic by its `relevance_strictness` level (`strict` / `standard` / `loose`): a generic review that never names its topic is rejected under `strict` but accepted under `standard` or `loose`. The gate runs after the topic-exists and capacity checks, so a full topic never spends an API call. Set `review_validation_enabled` to `false` in `config.json` to skip it (useful for offline development).
 
