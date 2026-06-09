@@ -130,15 +130,20 @@ def _find_topics(name):
 
 def _dispatch_tool(name, args):
     """Run one tool call and return the JSON-string result, any evaluation, and
-    the topic that was successfully evaluated (id + name), if any."""
+    the topic resolved this turn (id + name): the evaluated topic, or a single
+    name match. Persisting a single match lets a follow-up "yes" evaluate that
+    exact id instead of re-resolving by name and risking the wrong topic."""
     if name == "evaluate_topic":
         topic_id = args.get("topic_id")
         result, payload = _run_evaluate(topic_id)
         evaluation = result["evaluation"] if result else None
-        evaluated = {"id": topic_id, "name": result["topic_name"]} if result else None
-        return json.dumps(payload), evaluation, evaluated
+        resolved = {"id": topic_id, "name": result["topic_name"]} if result else None
+        return json.dumps(payload), evaluation, resolved
     if name == "find_topics_by_name":
-        return json.dumps(_find_topics(args.get("name"))), None, None
+        res = _find_topics(args.get("name"))
+        cands = res.get("candidates", [])
+        resolved = {"id": cands[0]["id"], "name": cands[0]["name"]} if len(cands) == 1 else None
+        return json.dumps(res), None, resolved
     return json.dumps({"error": f"unknown tool: {name}"}), None, None
 
 
@@ -215,8 +220,8 @@ def chat(message):
 
 
 def _verified_topic_note(thread):
-    """Build a conversation-state system message for a thread's verified topic,
-    or None if the thread has no verified topic yet."""
+    """Build a conversation-state system message for the topic under discussion
+    on this thread, or None if there is none yet."""
     if not thread or thread["verified_topic_id"] is None:
         return None
     topic_id = thread["verified_topic_id"]
@@ -224,12 +229,11 @@ def _verified_topic_note(thread):
     return {
         "role": "system",
         "content": (
-            f'Conversation state: the user has already confirmed and evaluated topic '
-            f'id {topic_id} ("{name}") earlier in this thread. If they refer to that '
-            'topic again (e.g. "it", "that one", "again", "the same topic"), reuse id '
-            f"{topic_id} directly and call evaluate_topic with it. Do NOT call "
-            "find_topics_by_name to re-resolve it. Only look up a topic by name if "
-            "the user clearly refers to a different one."
+            f'Conversation state: the topic currently under discussion in this thread '
+            f'is id {topic_id} ("{name}"). If the user confirms evaluating it or refers '
+            f'to it again (e.g. "yes", "that one", "it", "again"), call evaluate_topic '
+            f"with id {topic_id} directly. Do NOT call find_topics_by_name to re-resolve "
+            "it. Only look up a topic by name if the user clearly names a different one."
         ),
     }
 
