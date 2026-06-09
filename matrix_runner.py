@@ -32,9 +32,6 @@ MODELS = [
 ]
 TECHNIQUES = list(prompts.TECHNIQUES)
 
-PER_RUN_CSV = "data/comparison_runs.csv"
-TABLE_MD = "comparison_table.md"
-
 
 def _theme_set(themes):
     return {t.strip().lower() for t in themes if t and t.strip()}
@@ -59,6 +56,9 @@ def _mean(values):
 def main():
     topic_id = int(sys.argv[1]) if len(sys.argv) > 1 else 4
     runs_per_cell = int(sys.argv[2]) if len(sys.argv) > 2 else 3
+
+    per_run_csv = f"data/comparison_runs_topic{topic_id}.csv"
+    table_md = f"comparison_table_topic{topic_id}.md"
 
     per_run = []
     for model in MODELS:
@@ -103,7 +103,7 @@ def main():
                     flush=True,
                 )
 
-    with open(PER_RUN_CSV, "w", newline="", encoding="utf-8") as f:
+    with open(per_run_csv, "w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(f, fieldnames=list(per_run[0].keys()))
         writer.writeheader()
         writer.writerows(per_run)
@@ -140,10 +140,10 @@ def main():
     fails = sum(1 for r in per_run if r["status"] == "fail")
     lines += ["", f"Total runs: {len(per_run)} | failures: {fails} | total cost: ${total_cost:.4f}"]
 
-    with open(TABLE_MD, "w", encoding="utf-8") as f:
+    with open(table_md, "w", encoding="utf-8") as f:
         f.write("\n".join(lines) + "\n")
 
-    print(f"\nWrote {PER_RUN_CSV} and {TABLE_MD}")
+    print(f"\nWrote {per_run_csv} and {table_md}")
     print(f"Total cost: ${total_cost:.4f} | failures: {fails}")
 
 
