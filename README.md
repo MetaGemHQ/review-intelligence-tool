@@ -33,3 +33,10 @@ python app.py
 ```
 
 Then open <http://localhost:5000>.
+
+## Admin UI (optional)
+
+A separate Streamlit console under `ui/` drives the API over HTTP without
+touching the core project. It covers topic creation (with the per-topic
+relevance strictness level), review submission against the validation gate,
+evaluations, and the threaded Evaluation Agent. See `ui/README.md` to run it.
