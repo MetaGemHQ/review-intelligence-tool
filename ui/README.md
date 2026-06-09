@@ -14,18 +14,27 @@ core project, so the API remains the only place behaviour lives.
 - **Agent chat**: talk to the threaded Evaluation Agent, including its
   verified-topic memory across turns.
 
-## Run it
+## Run it (one step)
 
-From the project root, with the virtual environment active:
+The simplest way starts the API and the UI together and opens the UI in your
+browser. From the project root:
+
+- **Double-click `run_ui.bat`**, or
+- run `.venv\Scripts\python.exe run_ui.py`
+
+Press `Ctrl+C` in that window (or close it) to stop both.
+
+First time only, install the UI dependencies: `pip install -r ui/requirements.txt`.
+
+## Run it (two terminals)
+
+If you prefer to run the two processes yourself, with the virtual environment active:
 
 ```bash
-# 1. install the UI dependencies (once)
-pip install -r ui/requirements.txt
-
-# 2. start the API (terminal 1)
+# terminal 1: the API
 flask --app app run
 
-# 3. start the UI (terminal 2)
+# terminal 2: the UI
 streamlit run ui/streamlit_app.py
 ```
 

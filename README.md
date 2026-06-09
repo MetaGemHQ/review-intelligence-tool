@@ -39,4 +39,8 @@ Then open <http://localhost:5000>.
 A separate Streamlit console under `ui/` drives the API over HTTP without
 touching the core project. It covers topic creation (with the per-topic
 relevance strictness level), review submission against the validation gate,
-evaluations, and the threaded Evaluation Agent. See `ui/README.md` to run it.
+evaluations, and the threaded Evaluation Agent.
+
+To launch it in one step (starts the API and opens the UI in your browser),
+double-click `run_ui.bat` or run `.venv\Scripts\python.exe run_ui.py`. See
+`ui/README.md` for the two-terminal alternative.
