@@ -1,6 +1,7 @@
 """Launcher for the admin UI.
 
   python run_ui.py          start the API + UI and open the browser
+  python run_ui.py serve    start the API + UI without opening a browser
   python run_ui.py stop     stop the API + UI started earlier
 
 Start brings up the Flask API in the background, waits for it, then runs the
@@ -52,10 +53,11 @@ def stop():
     return 0
 
 
-def start():
+def start(open_browser=True):
     if _is_up(UI_URL):
-        print("Admin UI already running, opening it in the browser.")
-        webbrowser.open(UI_URL)
+        if open_browser:
+            print("Admin UI already running, opening it in the browser.")
+            webbrowser.open(UI_URL)
         return 0
 
     print("Starting the API on http://127.0.0.1:5000 ...")
@@ -73,10 +75,14 @@ def start():
         api_proc.terminate()
         return 1
 
-    print("Opening the admin UI in your browser ...")
+    print("Starting the admin UI ...")
+    # Headless when we are not opening the browser ourselves (e.g. auto-start at
+    # login), so Streamlit does not pop a tab every time.
+    ui_env = {**os.environ, "STREAMLIT_SERVER_HEADLESS": "false" if open_browser else "true"}
     ui_proc = subprocess.Popen(
         [sys.executable, "-m", "streamlit", "run", str(ROOT / "ui" / "streamlit_app.py")],
         cwd=ROOT,
+        env=ui_env,
     )
     RUNFILE.parent.mkdir(exist_ok=True)
     RUNFILE.write_text(json.dumps({"api": api_proc.pid, "ui": ui_proc.pid}))
@@ -94,9 +100,12 @@ def start():
 
 
 def main():
-    if len(sys.argv) > 1 and sys.argv[1].lower().startswith("stop"):
+    arg = sys.argv[1].lower() if len(sys.argv) > 1 else ""
+    if arg.startswith("stop"):
         return stop()
-    return start()
+    if arg.startswith("serve"):
+        return start(open_browser=False)
+    return start(open_browser=True)
 
 
 if __name__ == "__main__":

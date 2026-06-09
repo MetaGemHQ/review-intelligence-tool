@@ -41,6 +41,7 @@ touching the core project. It covers topic creation (with the per-topic
 relevance strictness level), review submission against the validation gate,
 evaluations, and the threaded Evaluation Agent.
 
-To launch it in one step (starts the API and opens the UI in your browser),
-double-click `run_ui.bat` or run `.venv\Scripts\python.exe run_ui.py`. See
-`ui/README.md` for the two-terminal alternative.
+For a permanent one-click setup, double-click `install_autostart.bat` once: the
+tool then starts hidden at every login and serves `http://localhost:8501`, which
+you bookmark. To launch it manually instead, double-click `run_ui.bat`. See
+`ui/README.md` for details and the two-terminal alternative.

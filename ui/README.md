@@ -14,22 +14,20 @@ core project, so the API remains the only place behaviour lives.
 - **Agent chat**: talk to the threaded Evaluation Agent, including its
   verified-topic memory across turns.
 
-## Run it from a browser link (one click)
+## Open it from a browser bookmark (recommended)
 
-Register the link once, then launch the whole app from your browser:
+Set it up once, then it is always one click from a normal bookmark:
 
-1. Run `register_links.bat` once (no admin needed). It registers, for your user,
-   the `reviewtool:open` link that starts the API + UI and opens it in your browser.
-2. Open `links.html` and click **Open the admin UI**. The first time, your
-   browser asks to allow "Review Intelligence Tool"; choose Always allow, then
-   Open. Bookmark the link (drag it to your bookmarks bar) for a permanent
-   one-click launch.
+1. Double-click `install_autostart.bat` (no admin needed). It makes the tool
+   start hidden at every login, serving `http://localhost:8501`, and starts it
+   right away.
+2. Open `http://localhost:8501` and bookmark it. From then on, clicking that
+   bookmark opens the tool.
 
-Clicking Open again while it is already running just reopens the browser tab.
-To stop the app, use the **Shut down app** button in the UI sidebar (it stops
-the API and closes the UI).
+To turn the autostart off, run `uninstall_autostart.bat`. The **Shut down app**
+button in the sidebar stops the current session.
 
-## Run it in one step (no browser link)
+## Run it in one step (no autostart)
 
 From the project root:
 
