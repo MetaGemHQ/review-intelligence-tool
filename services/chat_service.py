@@ -38,11 +38,13 @@ SYSTEM_PROMPT = (
     "before evaluating, even when the user's message sounded like a request to "
     "analyze (e.g. reply 'I found \"X\". Evaluate it?' and stop there for this turn).\n"
     "- Once the user has confirmed a topic (e.g. said yes) or gave an id directly, "
-    "evaluate it now and do NOT ask again. A topic id is only valid from the "
-    "user's direct input or a find_topics_by_name result in the current turn, so "
-    "if the confirmed topic was found in an earlier turn, silently call "
-    "find_topics_by_name again to re-resolve its id, then call evaluate_topic. "
-    "Never reuse an id from an earlier turn or invent one.\n"
+    "evaluate it now and do NOT ask again. A topic id is valid from the user's "
+    "direct input, a find_topics_by_name result in the current turn, or a verified "
+    "topic given in a conversation-state note in this prompt. If a conversation-state "
+    "note names a verified topic id, reuse that id directly. Otherwise, if the "
+    "confirmed topic was found only in an earlier turn with no such note, silently "
+    "call find_topics_by_name again to re-resolve its id, then call evaluate_topic. "
+    "Never invent an id.\n"
     "- After an evaluation, give a short, plain-language summary of what the reviews say."
 )
 
@@ -127,14 +129,17 @@ def _find_topics(name):
 
 
 def _dispatch_tool(name, args):
-    """Run one tool call and return the JSON-string result plus any evaluation."""
+    """Run one tool call and return the JSON-string result, any evaluation, and
+    the topic that was successfully evaluated (id + name), if any."""
     if name == "evaluate_topic":
-        result, payload = _run_evaluate(args.get("topic_id"))
+        topic_id = args.get("topic_id")
+        result, payload = _run_evaluate(topic_id)
         evaluation = result["evaluation"] if result else None
-        return json.dumps(payload), evaluation
+        evaluated = {"id": topic_id, "name": result["topic_name"]} if result else None
+        return json.dumps(payload), evaluation, evaluated
     if name == "find_topics_by_name":
-        return json.dumps(_find_topics(args.get("name"))), None
-    return json.dumps({"error": f"unknown tool: {name}"}), None
+        return json.dumps(_find_topics(args.get("name"))), None, None
+    return json.dumps({"error": f"unknown tool: {name}"}), None, None
 
 
 def _run_turn(messages):
@@ -142,13 +147,15 @@ def _run_turn(messages):
 
     Loops: the model may call tools (look up a topic, then evaluate it), and we
     feed each tool result back until it returns a plain-text reply. Returns
-    (reply_text, tool_used, evaluation). The tool-plumbing messages are transient
-    to this call and are not part of what callers persist.
+    (reply_text, tool_used, evaluation, verified_topic). verified_topic is the
+    {id, name} of the last topic evaluated this turn, or None. The tool-plumbing
+    messages are transient to this call and are not part of what callers persist.
     """
     client = get_client()
     convo = list(messages)
     tool_used = False
     evaluation = None
+    verified_topic = None
 
     for _ in range(MAX_TOOL_ITERS):
         response = client.chat.completions.create(
@@ -162,7 +169,7 @@ def _run_turn(messages):
         tool_calls = choice.tool_calls or []
 
         if not tool_calls:
-            return choice.content, tool_used, evaluation
+            return choice.content, tool_used, evaluation, verified_topic
 
         tool_used = True
         convo.append(
@@ -184,16 +191,18 @@ def _run_turn(messages):
         )
         for c in tool_calls:
             args = json.loads(c.function.arguments or "{}")
-            content, this_eval = _dispatch_tool(c.function.name, args)
+            content, this_eval, evaluated = _dispatch_tool(c.function.name, args)
             if this_eval is not None:
                 evaluation = this_eval
+            if evaluated is not None:
+                verified_topic = evaluated
             convo.append({"role": "tool", "tool_call_id": c.id, "content": content})
 
     # Safety net: tool loop did not converge; force a plain reply without tools.
     final = client.chat.completions.create(
         model=CHAT_MODEL, messages=convo, temperature=TEMPERATURE
     )
-    return final.choices[0].message.content, tool_used, evaluation
+    return final.choices[0].message.content, tool_used, evaluation, verified_topic
 
 
 def chat(message):
@@ -201,39 +210,74 @@ def chat(message):
         {"role": "system", "content": SYSTEM_PROMPT},
         {"role": "user", "content": message},
     ]
-    reply, tool_used, evaluation = _run_turn(messages)
+    reply, tool_used, evaluation, _ = _run_turn(messages)
     return {"reply": reply, "tool_used": tool_used, "evaluation": evaluation}
 
 
-def chat_threaded(thread_id, message):
-    """Milestone 2: persist the turn and carry the thread's history.
+def _verified_topic_note(thread):
+    """Build a conversation-state system message for a thread's verified topic,
+    or None if the thread has no verified topic yet."""
+    if not thread or thread["verified_topic_id"] is None:
+        return None
+    topic_id = thread["verified_topic_id"]
+    name = thread["verified_topic_name"]
+    return {
+        "role": "system",
+        "content": (
+            f'Conversation state: the user has already confirmed and evaluated topic '
+            f'id {topic_id} ("{name}") earlier in this thread. If they refer to that '
+            'topic again (e.g. "it", "that one", "again", "the same topic"), reuse id '
+            f"{topic_id} directly and call evaluate_topic with it. Do NOT call "
+            "find_topics_by_name to re-resolve it. Only look up a topic by name if "
+            "the user clearly refers to a different one."
+        ),
+    }
 
-    Saves the incoming user message, loads the full thread from the database,
-    runs the turn with that history in the prompt, then persists the reply
-    before returning. Only clean user/assistant turns are stored; the tool
-    plumbing stays transient.
+
+def chat_threaded(thread_id, message):
+    """Milestone 2 + verified-topic persistence: carry the thread's history and
+    its verified topic across turns.
+
+    Saves the incoming user message, loads the full thread and its verified-topic
+    state from the database, runs the turn with both in the prompt, then persists
+    the reply (and any newly verified topic) before returning. Only clean
+    user/assistant turns are stored; the tool plumbing stays transient.
     """
     conn = get_connection()
     try:
         chat_repo.save_message(conn, thread_id, "user", message)
         conn.commit()
 
+        thread = chat_repo.get_thread(conn, thread_id)
         history = chat_repo.get_messages_by_thread(conn, thread_id)
-        messages = [{"role": "system", "content": SYSTEM_PROMPT}] + [
+
+        messages = [{"role": "system", "content": SYSTEM_PROMPT}]
+        note = _verified_topic_note(thread)
+        if note is not None:
+            messages.append(note)
+        messages += [
             {"role": row["role"], "content": row["content"]} for row in history
         ]
 
-        reply, tool_used, evaluation = _run_turn(messages)
+        reply, tool_used, evaluation, verified_topic = _run_turn(messages)
 
         chat_repo.save_message(conn, thread_id, "assistant", reply or "")
+        if verified_topic is not None:
+            chat_repo.set_verified_topic(
+                conn, thread_id, verified_topic["id"], verified_topic["name"]
+            )
         conn.commit()
     finally:
         conn.close()
 
+    current = verified_topic["id"] if verified_topic else (
+        thread["verified_topic_id"] if thread else None
+    )
     return {
         "thread_id": thread_id,
         "reply": reply,
         "tool_used": tool_used,
         "evaluation": evaluation,
         "message_count": len(history) + 1,
+        "verified_topic_id": current,
     }

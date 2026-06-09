@@ -25,6 +25,15 @@ CREATE TABLE IF NOT EXISTS chat_messages (
 
 CREATE INDEX IF NOT EXISTS idx_chat_messages_thread ON chat_messages(thread_id, id);
 
+CREATE TABLE IF NOT EXISTS chat_threads (
+    thread_id TEXT PRIMARY KEY,
+    verified_topic_id INTEGER,
+    verified_topic_name TEXT,
+    verified_at TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    FOREIGN KEY (verified_topic_id) REFERENCES topics(id)
+);
+
 CREATE TABLE IF NOT EXISTS evaluation_runs (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     topic_id INTEGER NOT NULL,
