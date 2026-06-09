@@ -22,9 +22,9 @@ class ReviewVerdict(BaseModel):
     reason: str
 
 
-def validate_review(review_text, topic_name):
+def validate_review(review_text, topic_name, strictness=prompts.DEFAULT_RELEVANCE_LEVEL):
     client = get_client()
-    prompt = prompts.build_validation_prompt(topic_name, review_text)
+    prompt = prompts.build_validation_prompt(topic_name, review_text, strictness)
     response = client.responses.parse(
         model=VALIDATOR_MODEL,
         input=prompt,

@@ -3,6 +3,7 @@ CREATE TABLE IF NOT EXISTS topics (
     name TEXT NOT NULL,
     category TEXT,
     created_by TEXT,
+    relevance_strictness TEXT NOT NULL DEFAULT 'standard',
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 

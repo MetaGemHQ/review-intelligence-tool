@@ -25,6 +25,7 @@ def create_topic():
             name=body.get("name"),
             category=body.get("category"),
             created_by=body.get("created_by"),
+            relevance_strictness=body.get("relevance_strictness"),
         )
     except ValidationError as e:
         return jsonify({"error": str(e)}), 400

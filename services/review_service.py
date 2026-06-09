@@ -49,7 +49,9 @@ def add_review(topic_id, review_text, source=None):
             )
 
         if config.get("review_validation_enabled", True):
-            verdict = review_validator.validate_review(review_text, topic["name"])
+            verdict = review_validator.validate_review(
+                review_text, topic["name"], topic["relevance_strictness"]
+            )
             if not verdict.is_review:
                 raise ReviewRejected(
                     verdict.reason or "Submitted text does not look like a customer review"

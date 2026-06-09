@@ -8,13 +8,24 @@ On Windows PowerShell, `curl` is an alias for `Invoke-WebRequest`. To run the re
 
 Creates a new topic. `category` is optional but, if set, must be one of `company`, `product`, `service`. `created_by` is a free-form string and may be omitted.
 
+`relevance_strictness` is optional and sets how demanding the review-relevance gate is for this topic (see POST /reviews). It must be one of `strict`, `standard`, `loose` and defaults to `standard` when omitted. The level is chosen by the product owner at topic creation, on the assumption they know how clean the reviews are for that area:
+- `strict`: the review must clearly concern the topic — name the company or product and give specific pros and cons.
+- `standard`: the review plausibly concerns the topic, even without naming it; only off-topic text is rejected.
+- `loose`: any genuine review stating at least one positive or negative aspect passes, unless it is plainly about a different subject.
+
 ```bash
 curl.exe -X POST http://127.0.0.1:5000/topics ^
   -H "Content-Type: application/json" ^
-  -d "{\"name\": \"Acme Corp\", \"category\": \"company\", \"created_by\": \"vlad\"}"
+  -d "{\"name\": \"Acme Corp\", \"category\": \"company\", \"created_by\": \"vlad\", \"relevance_strictness\": \"strict\"}"
 ```
 
-Expected: `201 Created` with the new topic row.
+Expected: `201 Created` with the new topic row, including `relevance_strictness`.
+
+```bash
+curl.exe -X POST http://127.0.0.1:5000/topics -H "Content-Type: application/json" -d "{\"name\": \"X\", \"relevance_strictness\": \"bogus\"}"
+```
+
+Expected: `400 Bad Request`, `relevance_strictness must be one of ['loose', 'standard', 'strict']`.
 
 Error cases:
 
@@ -44,7 +55,7 @@ Expected: `200 OK` with a JSON array (possibly empty).
 
 Adds one review to an existing topic. Cap is 20 reviews per topic and 1000 characters per review (configured in `config.json`).
 
-Before the review is stored, an AI validation gate checks the candidate text (gpt-4o-mini, structured boolean output). It rejects anything that is not a genuine customer review, or that is a real review but not relevant to the topic. This guards against junk or fabricated input (e.g. a scraper returning non-review text) and against prompt-injection payloads disguised as reviews. The gate runs after the topic-exists and capacity checks, so a full topic never spends an API call. Set `review_validation_enabled` to `false` in `config.json` to skip it (useful for offline development).
+Before the review is stored, an AI validation gate checks the candidate text (gpt-4o-mini, structured boolean output). It decides two things: `is_review` (is this a genuine customer review at all?) and `is_relevant` (does it concern this topic?). The `is_review` check is a hard gate for every topic and rejects junk, fabricated, or off-form input and prompt-injection payloads disguised as reviews. The `is_relevant` bar is tuned per topic by its `relevance_strictness` level (`strict` / `standard` / `loose`): a generic review that never names its topic is rejected under `strict` but accepted under `standard` or `loose`. The gate runs after the topic-exists and capacity checks, so a full topic never spends an API call. Set `review_validation_enabled` to `false` in `config.json` to skip it (useful for offline development).
 
 ```bash
 curl.exe -X POST http://127.0.0.1:5000/reviews ^
@@ -195,11 +206,22 @@ The agent also has a `find_topics_by_name` tool, so the user can refer to a topi
 - several matches: lists them and asks which one;
 - no match: says so and asks the user to rephrase.
 
-A topic id is only trusted from the user's direct input or a lookup in the current turn, so when the user confirms a topic discussed in an earlier turn, the agent re-resolves the id before evaluating. Example over a thread:
+A topic id is trusted from the user's direct input, a lookup in the current turn, or a verified topic already persisted on the thread (see below). Example over a thread:
 
 ```bash
 curl.exe -X POST http://127.0.0.1:5000/v2/chat/find-1 -H "Content-Type: application/json" -d "{\"message\": \"Analyze the Notion reviews.\"}"
 curl.exe -X POST http://127.0.0.1:5000/v2/chat/find-1 -H "Content-Type: application/json" -d "{\"message\": \"Yes, that one.\"}"
 ```
 
-First call: `tool_used: true`, `evaluation: null`, reply like `I found "Notion (Trustpilot)". Evaluate it?`. Second call: re-resolves the id and returns the structured `evaluation`.
+First call: `tool_used: true`, `evaluation: null`, reply like `I found "Notion (Trustpilot)". Evaluate it?`. Second call: resolves the id and returns the structured `evaluation`.
+
+### Verified-topic persistence across turns
+
+Once a topic has been confirmed and evaluated in a thread, it is saved to the `chat_threads` table (`verified_topic_id` + name). On later turns that verified topic is loaded into the prompt as conversation state, so a follow-up that refers to it (`do it again`, `what about that one`) reuses the id directly instead of re-resolving it by name. The response includes `verified_topic_id` reflecting the thread's current verified topic.
+
+```bash
+curl.exe -X POST http://127.0.0.1:5000/v2/chat/persist-1 -H "Content-Type: application/json" -d "{\"message\": \"Evaluate topic 4.\"}"
+curl.exe -X POST http://127.0.0.1:5000/v2/chat/persist-1 -H "Content-Type: application/json" -d "{\"message\": \"Thanks, can you run that again?\"}"
+```
+
+First call evaluates topic 4 and returns `verified_topic_id: 4`. Second call carries no id or name, yet re-evaluates topic 4 from the persisted thread state.
