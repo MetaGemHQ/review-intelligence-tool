@@ -14,10 +14,24 @@ core project, so the API remains the only place behaviour lives.
 - **Agent chat**: talk to the threaded Evaluation Agent, including its
   verified-topic memory across turns.
 
-## Run it (one step)
+## Run it from a browser link (one click)
 
-The simplest way starts the API and the UI together and opens the UI in your
-browser. From the project root:
+Register two clickable links once, then launch the whole app from your browser:
+
+1. Run `register_links.bat` once (no admin needed). It registers, for your user:
+   - `reviewtool:open` - starts the API + UI and opens it in your browser
+   - `reviewtoolstop:open` - stops them
+2. Open `links.html` and click **Open the admin UI**. The first time, your
+   browser asks to allow "Review Intelligence Tool"; choose Always allow, then
+   Open. Bookmark the link (drag it to your bookmarks bar) for a permanent
+   one-click launch.
+
+Clicking Open again while it is already running just reopens the browser tab.
+Click **Stop the admin UI** (or `reviewtoolstop:open`) to shut it down.
+
+## Run it in one step (no browser link)
+
+From the project root:
 
 - **Double-click `run_ui.bat`**, or
 - run `.venv\Scripts\python.exe run_ui.py`
