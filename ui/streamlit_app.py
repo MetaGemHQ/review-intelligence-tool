@@ -6,12 +6,17 @@ endpoints, so the API stays the single source of behaviour. Run the Flask app
 first (see README), then `streamlit run ui/streamlit_app.py`.
 """
 
+import json
 import os
+import subprocess
+import time
+from pathlib import Path
 
 import requests
 import streamlit as st
 
 DEFAULT_BASE = os.environ.get("API_BASE_URL", "http://127.0.0.1:5000")
+RUNFILE = Path(__file__).resolve().parent.parent / "data" / "ui_pids.json"
 STRICTNESS_LEVELS = ["strict", "standard", "loose"]
 STRICTNESS_HELP = (
     "How demanding the relevance gate is for this topic. "
@@ -62,6 +67,31 @@ def topic_options(base):
     return topics, labels
 
 
+def shutdown_app():
+    """Stop the API, then stop this UI process. Same effect as the stop link.
+
+    When started by run_ui.py the API pid is recorded in the runfile; otherwise
+    fall back to whatever is listening on the API port.
+    """
+    api_pid = None
+    if RUNFILE.exists():
+        try:
+            api_pid = json.loads(RUNFILE.read_text()).get("api")
+        except (ValueError, OSError):
+            api_pid = None
+    if api_pid:
+        subprocess.run(["taskkill", "/F", "/T", "/PID", str(api_pid)], capture_output=True)
+    else:
+        out = subprocess.run(["netstat", "-ano"], capture_output=True, text=True).stdout
+        for line in out.splitlines():
+            if "LISTENING" in line and ":5000" in line:
+                subprocess.run(
+                    ["taskkill", "/F", "/T", "/PID", line.split()[-1]], capture_output=True
+                )
+    # Stop this UI process last; this ends the Streamlit server we run inside.
+    os._exit(0)
+
+
 # --- sidebar -------------------------------------------------------------
 st.sidebar.title("Review Intelligence")
 st.session_state.setdefault("base_url", DEFAULT_BASE)
@@ -75,6 +105,12 @@ if st.sidebar.button("Check connection"):
         st.sidebar.error(f"Cannot reach API: {e}")
 
 st.sidebar.caption("This UI is a separate client; all actions go through the Flask API.")
+
+st.sidebar.divider()
+if st.sidebar.button("Shut down app", key="shutdown_btn", help="Stops the API and closes the UI."):
+    st.sidebar.warning("Shutting down. You can close this tab.")
+    time.sleep(1.0)
+    shutdown_app()
 
 topics_tab, reviews_tab, evaluate_tab, agent_tab = st.tabs(
     ["Topics", "Reviews", "Evaluate", "Agent chat"]

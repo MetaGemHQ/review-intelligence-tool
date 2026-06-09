@@ -1,7 +1,7 @@
 @echo off
-REM Registers two clickable browser links on this user account (no admin needed):
-REM   reviewtool:open      starts the API + UI and opens it in the browser
-REM   reviewtoolstop:open  stops them
+REM Registers one clickable browser link on this user account (no admin needed):
+REM   reviewtool:open   starts the API + UI and opens it in the browser
+REM Stopping is done from the "Shut down app" button inside the UI.
 REM Uses this folder's own path, so it works wherever the repo lives.
 setlocal
 set "ROOT=%~dp0"
@@ -13,12 +13,8 @@ reg add "HKCU\Software\Classes\reviewtool" /ve /d "URL:Review Intelligence Tool"
 reg add "HKCU\Software\Classes\reviewtool" /v "URL Protocol" /d "" /f
 reg add "HKCU\Software\Classes\reviewtool\shell\open\command" /ve /d "\"%PYW%\" \"%SCRIPT%\"" /f
 
-reg add "HKCU\Software\Classes\reviewtoolstop" /ve /d "URL:Stop Review Intelligence Tool" /f
-reg add "HKCU\Software\Classes\reviewtoolstop" /v "URL Protocol" /d "" /f
-reg add "HKCU\Software\Classes\reviewtoolstop\shell\open\command" /ve /d "\"%PYW%\" \"%SCRIPT%\" stop" /f
-
 echo.
-echo Registered the reviewtool: and reviewtoolstop: links.
-echo Open links.html and bookmark the two links, or add bookmarks pointing to
-echo   reviewtool:open   and   reviewtoolstop:open
+echo Registered the reviewtool: link.
+echo Open links.html and bookmark the link, or add a bookmark pointing to
+echo   reviewtool:open
 pause

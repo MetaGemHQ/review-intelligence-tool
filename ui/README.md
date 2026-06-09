@@ -16,18 +16,18 @@ core project, so the API remains the only place behaviour lives.
 
 ## Run it from a browser link (one click)
 
-Register two clickable links once, then launch the whole app from your browser:
+Register the link once, then launch the whole app from your browser:
 
-1. Run `register_links.bat` once (no admin needed). It registers, for your user:
-   - `reviewtool:open` - starts the API + UI and opens it in your browser
-   - `reviewtoolstop:open` - stops them
+1. Run `register_links.bat` once (no admin needed). It registers, for your user,
+   the `reviewtool:open` link that starts the API + UI and opens it in your browser.
 2. Open `links.html` and click **Open the admin UI**. The first time, your
    browser asks to allow "Review Intelligence Tool"; choose Always allow, then
    Open. Bookmark the link (drag it to your bookmarks bar) for a permanent
    one-click launch.
 
 Clicking Open again while it is already running just reopens the browser tab.
-Click **Stop the admin UI** (or `reviewtoolstop:open`) to shut it down.
+To stop the app, use the **Shut down app** button in the UI sidebar (it stops
+the API and closes the UI).
 
 ## Run it in one step (no browser link)
 
