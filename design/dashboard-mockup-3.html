@@ -1,0 +1,290 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Review Intelligence - Dashboard mockup</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0a0b14; --card:rgba(255,255,255,.045); --ink:#eef0fb; --muted:#8b90b5; --line:rgba(255,255,255,.09);
+    --accent:#8b5cff; --accent2:#ff5cb0; --accent-soft:rgba(139,92,255,.18);
+    --neg:#ff5c7a; --neg-soft:rgba(255,92,122,.15); --pos:#2dd4a7; --pos-soft:rgba(45,212,167,.15);
+    --mix:#ffb84d; --mix-soft:rgba(255,184,77,.15); --sidebar:#101227; --hole:#15172d;
+    --shadow:0 1px 2px rgba(0,0,0,.3),0 12px 30px rgba(0,0,0,.35);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:Inter,system-ui,sans-serif;color:var(--ink);
+       background:var(--bg);
+       background-image:radial-gradient(900px 520px at 12% -8%,rgba(139,92,255,.20),transparent 60%),
+                        radial-gradient(820px 520px at 100% 0%,rgba(255,92,176,.13),transparent 55%);
+       background-attachment:fixed;-webkit-font-smoothing:antialiased}
+  .app{display:grid;grid-template-columns:248px 1fr;min-height:100vh}
+
+  /* sidebar */
+  .side{background:var(--sidebar);color:#c7cbe6;padding:24px 18px;display:flex;flex-direction:column;gap:28px}
+  .brand{display:flex;align-items:center;gap:10px;color:#fff;font-weight:700;font-size:16px}
+  .brand .logo{width:30px;height:30px;border-radius:9px;background:linear-gradient(135deg,#6d5cff,#9b6bff);
+       display:grid;place-items:center;font-size:15px}
+  .nav{display:flex;flex-direction:column;gap:4px}
+  .nav a{display:flex;align-items:center;gap:11px;padding:10px 12px;border-radius:10px;color:#aab0d4;
+       text-decoration:none;font-size:14px;font-weight:500}
+  .nav a.active{background:rgba(109,92,255,.18);color:#fff}
+  .nav a:hover:not(.active){background:rgba(255,255,255,.05);color:#fff}
+  .side .label{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#5a608a;padding:0 12px;margin-bottom:6px}
+  .topics{display:flex;flex-direction:column;gap:2px}
+  .topics .t{display:flex;align-items:center;justify-content:space-between;padding:9px 12px;border-radius:9px;
+       font-size:13px;color:#aab0d4;cursor:pointer}
+  .topics .t.active{background:rgba(255,255,255,.06);color:#fff}
+  .topics .dot{width:8px;height:8px;border-radius:50%}
+  .side .foot{margin-top:auto;font-size:12px;color:#5a608a}
+
+  /* main */
+  .main{padding:26px 34px 40px}
+  .topbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:24px}
+  .topbar h1{font-size:22px;margin:0 0 3px;font-weight:700}
+  .topbar .sub{color:var(--muted);font-size:13px}
+  .controls{display:flex;align-items:center;gap:10px}
+  .select{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:9px 14px;font-size:13px;
+       font-weight:600;color:var(--ink);display:flex;align-items:center;gap:8px;box-shadow:var(--shadow)}
+  .btn{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;border:none;border-radius:10px;padding:10px 16px;font-size:13px;
+       font-weight:700;cursor:pointer;box-shadow:0 8px 20px rgba(139,92,255,.4)}
+
+  .verdict{display:flex;align-items:center;justify-content:space-between;gap:18px;margin-bottom:18px;
+       background:linear-gradient(120deg,rgba(139,92,255,.18),rgba(255,92,176,.08));
+       border:1px solid rgba(139,92,255,.30);border-radius:14px;padding:14px 20px}
+  .verdict .vleft{display:flex;align-items:center;gap:14px;min-width:0}
+  .verdict .vlabel{flex:none;font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;font-weight:800;
+       color:#ffd0ea;background:rgba(255,92,176,.16);padding:5px 10px;border-radius:20px}
+  .verdict .vtext{font-size:14px;color:#e7e9fb;line-height:1.45}
+  .verdict .vtext b{color:#fff}
+  .verdict .vright{flex:none;display:flex;align-items:center;gap:9px;font-weight:700;font-size:14px;color:#fff;white-space:nowrap}
+
+  .grid{display:grid;gap:18px}
+  .kpis{grid-template-columns:repeat(4,1fr)}
+  .row2{grid-template-columns:1.15fr 1fr}
+  .row3{grid-template-columns:1fr 1fr}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:20px;box-shadow:var(--shadow);backdrop-filter:blur(8px)}
+  .card h3{margin:0 0 2px;font-size:14px;font-weight:600}
+  .card .hint{color:var(--muted);font-size:12px;margin:0 0 16px}
+
+  .kpi .top{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+  .kpi .icon{width:36px;height:36px;border-radius:10px;display:grid;place-items:center;font-size:16px}
+  .kpi .k{font-size:28px;font-weight:800;line-height:1}
+  .kpi .lbl{color:var(--muted);font-size:12.5px;margin-top:6px}
+  .chip{font-size:11px;font-weight:700;padding:4px 9px;border-radius:20px}
+  .chip.neg{background:var(--neg-soft);color:var(--neg)} .chip.pos{background:var(--pos-soft);color:var(--pos)}
+  .chip.mix{background:var(--mix-soft);color:var(--mix)}
+  .stars{color:var(--mix);font-size:14px;letter-spacing:1px}
+
+  /* donut */
+  .donut-wrap{display:flex;align-items:center;gap:26px}
+  .donut{width:150px;height:150px;border-radius:50%;
+     background:conic-gradient(var(--neg) 0 80%,var(--mix) 80% 90%,var(--pos) 90% 100%);
+     display:grid;place-items:center;position:relative}
+  .donut::after{content:"";width:96px;height:96px;background:var(--hole);border-radius:50%}
+  .donut .center{position:absolute;text-align:center}
+  .donut .center b{font-size:22px;font-weight:800;display:block} .donut .center span{font-size:11px;color:var(--muted)}
+  .legend{display:flex;flex-direction:column;gap:12px;font-size:13px}
+  .legend .li{display:flex;align-items:center;gap:9px}
+  .legend .sw{width:11px;height:11px;border-radius:3px}
+  .legend b{margin-left:auto;font-weight:700}
+
+  /* bars */
+  .bars{display:flex;flex-direction:column;gap:11px}
+  .bar{display:flex;align-items:center;gap:10px;font-size:12.5px;color:var(--muted)}
+  .bar .lab{width:26px;text-align:right}
+  .bar .track{flex:1;height:9px;background:rgba(255,255,255,.07);border-radius:6px;overflow:hidden}
+  .bar .fill{height:100%;border-radius:6px;background:linear-gradient(90deg,var(--accent),var(--accent2))}
+  .bar .val{width:30px;text-align:right;color:var(--ink);font-weight:600}
+
+  /* themes */
+  .themes{display:flex;flex-direction:column;gap:14px}
+  .theme{display:flex;flex-direction:column;gap:6px}
+  .theme .h{display:flex;justify-content:space-between;font-size:13px;font-weight:600}
+  .theme .h span{color:var(--muted);font-weight:500}
+  .theme .track{height:7px;background:rgba(255,255,255,.07);border-radius:6px;overflow:hidden}
+  .theme .fill{height:100%;border-radius:6px}
+
+  /* reviews */
+  .review{display:flex;gap:13px;padding:14px 0;border-top:1px solid var(--line)}
+  .review:first-of-type{border-top:none;padding-top:4px}
+  .avatar{width:38px;height:38px;border-radius:50%;flex:none;display:grid;place-items:center;color:#fff;font-weight:700;font-size:14px}
+  .review .who{font-weight:600;font-size:13.5px}
+  .review .meta{color:var(--muted);font-size:12px;margin:1px 0 7px}
+  .review p{margin:0;font-size:13px;color:#bcc0e0;line-height:1.5}
+
+  /* agent */
+  .agent .bubble{font-size:13px;line-height:1.5;padding:11px 14px;border-radius:13px;max-width:88%}
+  .agent .u{background:linear-gradient(135deg,rgba(139,92,255,.32),rgba(255,92,176,.24));color:#f3eefe;margin-left:auto;border-bottom-right-radius:4px}
+  .agent .a{background:rgba(255,255,255,.06);color:#d4d7f0;border-bottom-left-radius:4px}
+  .agent .thread{display:flex;flex-direction:column;gap:10px;margin-bottom:14px}
+  .agent .input{display:flex;gap:8px;border:1px solid var(--line);border-radius:12px;padding:7px 8px 7px 14px;align-items:center}
+  .agent .input input{background:none;border:none;outline:none;flex:1;font-size:13px;font-family:inherit;color:var(--ink)}
+  .agent .input input::placeholder{color:var(--muted)}
+  .agent .send{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;border:none;width:34px;height:34px;border-radius:9px;cursor:pointer}
+  .mt{margin-top:18px}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- sidebar -->
+  <aside class="side">
+    <div class="brand"><div class="logo">RI</div> Review Intelligence</div>
+    <nav class="nav">
+      <a class="active" href="#">&#9632;&nbsp; Dashboard</a>
+      <a href="#">&#9635;&nbsp; Topics</a>
+      <a href="#">&#9776;&nbsp; Reviews</a>
+      <a href="#">&#9678;&nbsp; Agent</a>
+      <a href="#">&#9881;&nbsp; Settings</a>
+    </nav>
+    <div>
+      <div class="label">Topics</div>
+      <div class="topics">
+        <div class="t active"><span><span class="dot" style="background:var(--neg)"></span>&nbsp; Zalando UK</span><span>20</span></div>
+        <div class="t"><span><span class="dot" style="background:var(--neg)"></span>&nbsp; Volkswagen US</span><span>20</span></div>
+        <div class="t"><span><span class="dot" style="background:var(--mix)"></span>&nbsp; Notion</span><span>20</span></div>
+        <div class="t"><span><span class="dot" style="background:var(--pos)"></span>&nbsp; Acme Corp</span><span>12</span></div>
+      </div>
+    </div>
+    <div class="foot">+ New topic</div>
+  </aside>
+
+  <!-- main -->
+  <main class="main">
+    <div class="topbar">
+      <div>
+        <h1>Zalando UK</h1>
+        <div class="sub">20 reviews analyzed &middot; last evaluated 2 min ago &middot; gpt-4o-mini</div>
+      </div>
+      <div class="controls">
+        <div class="select">Strictness: Standard &#9662;</div>
+        <div class="select">Last 30 days &#9662;</div>
+        <button class="btn">Run evaluation</button>
+      </div>
+    </div>
+
+    <!-- verdict highlight -->
+    <div class="verdict">
+      <div class="vleft">
+        <span class="vlabel">Verdict</span>
+        <span class="vtext"><b>Negative.</b> Customers are frustrated with Zalando UK: service and refunds dominate the feedback, with packaging a secondary concern.</span>
+      </div>
+      <div class="vright"><span class="stars">&#9733;&#9733;&#9734;&#9734;&#9734;</span> 1.4/5</div>
+    </div>
+
+    <!-- KPIs -->
+    <div class="grid kpis">
+      <div class="card kpi">
+        <div class="top"><div class="icon" style="background:var(--neg-soft);color:var(--neg)">&#9786;</div><span class="chip neg">Negative</span></div>
+        <div class="k">Negative</div><div class="lbl">Overall sentiment</div>
+      </div>
+      <div class="card kpi">
+        <div class="top"><div class="icon" style="background:var(--mix-soft);color:var(--mix)">&#9733;</div></div>
+        <div class="k">1.4<span style="font-size:15px;color:var(--muted)">/5</span></div>
+        <div class="lbl"><span class="stars">&#9733;&#9733;&#9734;&#9734;&#9734;</span> &nbsp;Average rating</div>
+      </div>
+      <div class="card kpi">
+        <div class="top"><div class="icon" style="background:var(--accent-soft);color:var(--accent)">&#9776;</div></div>
+        <div class="k">20</div><div class="lbl">Reviews analyzed</div>
+      </div>
+      <div class="card kpi">
+        <div class="top"><div class="icon" style="background:var(--neg-soft);color:var(--neg)">&#9888;</div><span class="chip neg">14 mentions</span></div>
+        <div class="k" style="font-size:19px;padding-top:6px">Customer service</div><div class="lbl">Top pain point</div>
+      </div>
+    </div>
+
+    <!-- sentiment + rating -->
+    <div class="grid row2 mt">
+      <div class="card">
+        <h3>Sentiment breakdown</h3><p class="hint">Share of reviews by overall tone</p>
+        <div class="donut-wrap">
+          <div class="donut"><div class="center"><b>80%</b><span>negative</span></div></div>
+          <div class="legend" style="flex:1">
+            <div class="li"><span class="sw" style="background:var(--neg)"></span> Negative <b>80%</b></div>
+            <div class="li"><span class="sw" style="background:var(--mix)"></span> Mixed <b>10%</b></div>
+            <div class="li"><span class="sw" style="background:var(--pos)"></span> Positive <b>10%</b></div>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <h3>Rating distribution</h3><p class="hint">How the 20 reviews score the brand</p>
+        <div class="bars" style="margin-top:6px">
+          <div class="bar"><span class="lab">5&#9733;</span><div class="track"><div class="fill" style="width:8%"></div></div><span class="val">1</span></div>
+          <div class="bar"><span class="lab">4&#9733;</span><div class="track"><div class="fill" style="width:8%"></div></div><span class="val">1</span></div>
+          <div class="bar"><span class="lab">3&#9733;</span><div class="track"><div class="fill" style="width:16%"></div></div><span class="val">2</span></div>
+          <div class="bar"><span class="lab">2&#9733;</span><div class="track"><div class="fill" style="width:24%"></div></div><span class="val">3</span></div>
+          <div class="bar"><span class="lab">1&#9733;</span><div class="track"><div class="fill" style="width:84%"></div></div><span class="val">13</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- themes -->
+    <div class="grid row3 mt">
+      <div class="card">
+        <h3 style="color:var(--neg)">Top pain points</h3><p class="hint">Recurring negative themes</p>
+        <div class="themes">
+          <div class="theme"><div class="h">Customer service <span>14</span></div><div class="track"><div class="fill" style="width:90%;background:var(--neg)"></div></div></div>
+          <div class="theme"><div class="h">Refund &amp; returns process <span>11</span></div><div class="track"><div class="fill" style="width:72%;background:var(--neg)"></div></div></div>
+          <div class="theme"><div class="h">Packaging quality <span>7</span></div><div class="track"><div class="fill" style="width:48%;background:var(--neg)"></div></div></div>
+          <div class="theme"><div class="h">Item condition <span>5</span></div><div class="track"><div class="fill" style="width:34%;background:var(--neg)"></div></div></div>
+        </div>
+      </div>
+      <div class="card">
+        <h3 style="color:var(--pos)">Positive drivers</h3><p class="hint">What the few happy customers mention</p>
+        <div class="themes">
+          <div class="theme"><div class="h">Product selection <span>4</span></div><div class="track"><div class="fill" style="width:40%;background:var(--pos)"></div></div></div>
+          <div class="theme"><div class="h">Fast delivery <span>3</span></div><div class="track"><div class="fill" style="width:30%;background:var(--pos)"></div></div></div>
+          <div class="theme"><div class="h">Easy checkout <span>2</span></div><div class="track"><div class="fill" style="width:20%;background:var(--pos)"></div></div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- reviews + agent -->
+    <div class="grid row2 mt">
+      <div class="card">
+        <h3>Recent reviews</h3><p class="hint">Validated and stored under this topic</p>
+        <div class="review">
+          <div class="avatar" style="background:#f0476b">A</div>
+          <div>
+            <div class="who">Anka 88 <span class="chip neg" style="margin-left:6px">Negative</span></div>
+            <div class="meta">Dec 10, 2025 &middot; Google &middot; 1&#9733;</div>
+            <p>Extremely disappointing. The handbag arrived in terrible packaging, and support sent an automatic return label instead of helping.</p>
+          </div>
+        </div>
+        <div class="review">
+          <div class="avatar" style="background:#7c5cff">S</div>
+          <div>
+            <div class="who">Silvana Mak <span class="chip neg" style="margin-left:6px">Negative</span></div>
+            <div class="meta">Nov 7, 2025 &middot; Google &middot; 1&#9733;</div>
+            <p>Over two months chasing a refund. Generic responses, no accountability, repeatedly asked to resend the same documents.</p>
+          </div>
+        </div>
+        <div class="review">
+          <div class="avatar" style="background:#15b886">F</div>
+          <div>
+            <div class="who">Faizah Haider <span class="chip neg" style="margin-left:6px">Negative</span></div>
+            <div class="meta">Jan 12 &middot; Google &middot; 2&#9733;</div>
+            <p>Shoes arrived worn and dirty. Told to return for inspection with no exchange or partial refund, losing the sale price.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="card agent">
+        <h3>Ask the agent</h3><p class="hint">Conversational evaluation over this topic</p>
+        <div class="thread">
+          <div class="bubble u">What is the single biggest problem for Zalando UK?</div>
+          <div class="bubble a">Customer service is the dominant pain point, named in 14 of 20 reviews. Customers describe slow refunds, repeated requests for the same documents, and unhelpful responses. Packaging and item condition are secondary.</div>
+          <div class="bubble u">Anything positive?</div>
+          <div class="bubble a">A small minority praise the product selection and fast delivery, but these are outweighed by service complaints.</div>
+        </div>
+        <div class="input"><input placeholder="Ask about this topic..."><button class="send">&#8593;</button></div>
+      </div>
+    </div>
+  </main>
+</div>
+</body>
+</html>
