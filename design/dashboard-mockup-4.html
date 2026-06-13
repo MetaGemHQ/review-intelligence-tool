@@ -1,0 +1,314 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Review Intelligence - Dashboard mockup 4 (redesign)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0a0b14; --card:rgba(255,255,255,.045); --card-h:rgba(255,255,255,.07); --ink:#eef0fb; --muted:#8b90b5; --faint:#5d628a;
+    --line:rgba(255,255,255,.09); --line-h:rgba(255,255,255,.16);
+    --accent:#8b5cff; --accent2:#ff5cb0; --accent-soft:rgba(139,92,255,.18);
+    --neg:#ff5c7a; --neg-soft:rgba(255,92,122,.15); --pos:#2dd4a7; --pos-soft:rgba(45,212,167,.15);
+    --mix:#ffb84d; --mix-soft:rgba(255,184,77,.15); --sidebar:#101227; --hole:#15172d;
+    --shadow:0 1px 2px rgba(0,0,0,.3),0 12px 30px rgba(0,0,0,.35);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:Inter,system-ui,sans-serif;color:var(--ink);background:var(--bg);
+       background-image:radial-gradient(900px 520px at 12% -8%,rgba(139,92,255,.20),transparent 60%),
+                        radial-gradient(820px 520px at 100% 0%,rgba(255,92,176,.13),transparent 55%);
+       background-attachment:fixed;-webkit-font-smoothing:antialiased}
+  .app{display:grid;grid-template-columns:248px 1fr;min-height:100vh}
+  svg.ic{width:1em;height:1em;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;display:block}
+
+  /* sidebar (representative - real app uses native Streamlit widgets here) */
+  .side{background:var(--sidebar);color:#c7cbe6;padding:24px 18px;display:flex;flex-direction:column;gap:26px;border-right:1px solid var(--line)}
+  .brand{display:flex;align-items:center;gap:10px;color:#fff;font-weight:800;font-size:16px}
+  .brand .logo{width:30px;height:30px;border-radius:9px;background:linear-gradient(135deg,#8b5cff,#ff5cb0);
+       display:grid;place-items:center;font-size:13px;font-weight:800;box-shadow:0 6px 18px rgba(139,92,255,.45)}
+  .nav{display:flex;flex-direction:column;gap:4px}
+  .nav a{display:flex;align-items:center;gap:11px;padding:10px 12px;border-radius:10px;color:#aab0d4;
+       text-decoration:none;font-size:14px;font-weight:500;font-size:14px}
+  .nav a .ic{font-size:17px;color:#7d83ad}
+  .nav a.active{background:rgba(139,92,255,.18);color:#fff} .nav a.active .ic{color:#b9a6ff}
+  .nav a:hover:not(.active){background:rgba(255,255,255,.05);color:#fff}
+  .side .label{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#5a608a;padding:0 12px;margin-bottom:6px}
+  .topics{display:flex;flex-direction:column;gap:2px}
+  .topics .t{display:flex;align-items:center;justify-content:space-between;padding:9px 12px;border-radius:9px;font-size:13px;color:#aab0d4;cursor:pointer}
+  .topics .t.active{background:rgba(255,255,255,.06);color:#fff}
+  .topics .t span:first-child{display:flex;align-items:center;gap:9px}
+  .topics .dot{width:8px;height:8px;border-radius:50%}
+  .side .foot{margin-top:auto;font-size:12px;color:#5a608a;display:flex;align-items:center;gap:7px}
+
+  /* main */
+  .main{padding:26px 34px 44px;max-width:1180px}
+  .topbar{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:22px;gap:18px}
+  .topbar h1{font-size:23px;margin:0 0 4px;font-weight:800;letter-spacing:-.01em}
+  .topbar .sub{color:var(--muted);font-size:13px;display:flex;align-items:center;gap:8px}
+  .topbar .sub .live{display:inline-flex;align-items:center;gap:6px;color:var(--pos)}
+  .topbar .sub .live i{width:7px;height:7px;border-radius:50%;background:var(--pos);box-shadow:0 0 0 0 rgba(45,212,167,.6);animation:pulse 2s infinite}
+  @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(45,212,167,.5)}70%{box-shadow:0 0 0 7px rgba(45,212,167,0)}100%{box-shadow:0 0 0 0 rgba(45,212,167,0)}}
+  .controls{display:flex;align-items:center;gap:10px;flex:none}
+  .select{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:9px 13px;font-size:13px;font-weight:600;color:var(--ink);display:flex;align-items:center;gap:8px}
+  .select .ic{font-size:15px;color:var(--muted)}
+  .btn{display:inline-flex;align-items:center;gap:8px;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;border:none;border-radius:10px;padding:10px 16px;font-size:13px;font-weight:700;cursor:pointer;box-shadow:0 8px 20px rgba(139,92,255,.4)}
+  .btn .ic{font-size:15px}
+
+  .verdict{display:flex;align-items:center;justify-content:space-between;gap:18px;margin-bottom:20px;
+       background:linear-gradient(120deg,rgba(139,92,255,.18),rgba(255,92,176,.08));
+       border:1px solid rgba(139,92,255,.30);border-radius:14px;padding:15px 20px}
+  .verdict .vleft{display:flex;align-items:center;gap:14px;min-width:0}
+  .verdict .vlabel{flex:none;display:inline-flex;align-items:center;gap:6px;font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;font-weight:800;color:#ffd0ea;background:rgba(255,92,176,.16);padding:6px 11px;border-radius:20px}
+  .verdict .vlabel .ic{font-size:13px}
+  .verdict .vtext{font-size:14px;color:#e7e9fb;line-height:1.45} .verdict .vtext b{color:#fff}
+  .verdict .vright{flex:none;display:flex;align-items:center;gap:9px;font-weight:700;font-size:15px;color:#fff;white-space:nowrap}
+
+  .grid{display:grid;gap:18px}
+  .kpis{grid-template-columns:repeat(4,1fr)}
+  .row2{grid-template-columns:1.15fr 1fr}
+  .row3{grid-template-columns:1fr 1fr}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:20px;box-shadow:var(--shadow);backdrop-filter:blur(8px);
+       transition:transform .16s ease,border-color .16s ease,background .16s ease}
+  .card:hover{transform:translateY(-2px);border-color:var(--line-h);background:var(--card-h)}
+  .card h3{margin:0 0 2px;font-size:14px;font-weight:700;display:flex;align-items:center;gap:8px}
+  .card h3 .ic{font-size:16px}
+  .card .hint{color:var(--muted);font-size:12px;margin:0 0 16px}
+  .sec-h{display:flex;align-items:center;gap:9px;font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--faint);margin:24px 2px 12px}
+  .sec-h .ln{flex:1;height:1px;background:linear-gradient(90deg,var(--line),transparent)}
+
+  .kpi .top{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+  .kpi .icon{width:36px;height:36px;border-radius:10px;display:grid;place-items:center;font-size:18px}
+  .kpi .k{font-size:28px;font-weight:800;line-height:1}
+  .kpi .lbl{color:var(--muted);font-size:12.5px;margin-top:6px;display:flex;align-items:center;gap:6px}
+  .chip{font-size:11px;font-weight:700;padding:4px 9px;border-radius:20px}
+  .chip.neg{background:var(--neg-soft);color:var(--neg)} .chip.pos{background:var(--pos-soft);color:var(--pos)} .chip.mix{background:var(--mix-soft);color:var(--mix)}
+  .stars{color:var(--mix);font-size:14px;letter-spacing:1px}
+
+  .donut-wrap{display:flex;align-items:center;gap:26px}
+  .donut{width:150px;height:150px;border-radius:50%;background:conic-gradient(var(--neg) 0 80%,var(--mix) 80% 90%,var(--pos) 90% 100%);display:grid;place-items:center;position:relative;flex:none}
+  .donut::after{content:"";width:96px;height:96px;background:var(--hole);border-radius:50%}
+  .donut .center{position:absolute;text-align:center} .donut .center b{font-size:22px;font-weight:800;display:block} .donut .center span{font-size:11px;color:var(--muted)}
+  .legend{display:flex;flex-direction:column;gap:12px;font-size:13px;flex:1}
+  .legend .li{display:flex;align-items:center;gap:9px} .legend .sw{width:11px;height:11px;border-radius:3px} .legend b{margin-left:auto;font-weight:700}
+
+  .bars{display:flex;flex-direction:column;gap:11px;margin-top:6px}
+  .bar{display:flex;align-items:center;gap:10px;font-size:12.5px;color:var(--muted)}
+  .bar .lab{width:26px;text-align:right} .bar .track{flex:1;height:9px;background:rgba(255,255,255,.07);border-radius:6px;overflow:hidden}
+  .bar .fill{height:100%;border-radius:6px;background:linear-gradient(90deg,var(--accent),var(--accent2))} .bar .val{width:30px;text-align:right;color:var(--ink);font-weight:600}
+
+  .themes{display:flex;flex-direction:column;gap:14px}
+  .theme{display:flex;flex-direction:column;gap:6px}
+  .theme .h{display:flex;justify-content:space-between;font-size:13px;font-weight:600} .theme .h span{color:var(--muted);font-weight:500}
+  .theme .track{height:7px;background:rgba(255,255,255,.07);border-radius:6px;overflow:hidden} .theme .fill{height:100%;border-radius:6px}
+
+  .review{display:flex;gap:13px;padding:14px 0;border-top:1px solid var(--line)}
+  .review:first-of-type{border-top:none;padding-top:4px}
+  .avatar{width:38px;height:38px;border-radius:50%;flex:none;display:grid;place-items:center;color:#fff;font-weight:700;font-size:14px}
+  .review .who{font-weight:600;font-size:13.5px} .review .meta{color:var(--muted);font-size:12px;margin:1px 0 7px} .review p{margin:0;font-size:13px;color:#bcc0e0;line-height:1.5}
+
+  /* ===== AGENT HERO (the redesign centrepiece) ===== */
+  .agent-hero{position:relative;overflow:hidden;border-radius:18px;padding:22px 24px;margin:6px 0 4px;
+       background:linear-gradient(125deg,rgba(139,92,255,.22),rgba(255,92,176,.10) 70%);
+       border:1px solid rgba(139,92,255,.45);
+       box-shadow:0 0 0 1px rgba(139,92,255,.12),0 22px 55px rgba(139,92,255,.20)}
+  .agent-hero::before{content:"";position:absolute;width:320px;height:320px;right:-80px;top:-140px;border-radius:50%;
+       background:radial-gradient(circle,rgba(255,92,176,.22),transparent 65%);pointer-events:none}
+  .ah-head{display:flex;align-items:center;gap:13px;margin-bottom:4px;position:relative}
+  .ah-ico{width:42px;height:42px;border-radius:12px;flex:none;display:grid;place-items:center;color:#fff;font-size:21px;
+       background:linear-gradient(135deg,#8b5cff,#ff5cb0);box-shadow:0 8px 22px rgba(139,92,255,.5)}
+  .ah-title{font-size:17px;font-weight:800;color:#fff;display:flex;align-items:center;gap:9px}
+  .ah-title .ai{font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;font-weight:800;color:#ffd0ea;background:rgba(255,92,176,.18);padding:4px 9px;border-radius:20px}
+  .ah-sub{font-size:12.5px;color:#c9b8f5;margin:1px 0 0}
+  .qchips{display:flex;flex-wrap:wrap;gap:9px;margin:16px 0 16px;position:relative}
+  .qchip{display:inline-flex;align-items:center;gap:7px;font-size:12.5px;font-weight:600;color:#e7e3fb;cursor:pointer;
+       background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.14);padding:8px 13px;border-radius:20px;transition:all .15s}
+  .qchip .ic{font-size:14px;color:#c9a9ff}
+  .qchip:hover{background:rgba(139,92,255,.28);border-color:rgba(139,92,255,.6);color:#fff;transform:translateY(-1px)}
+  .thread{display:flex;flex-direction:column;gap:10px;margin-bottom:16px;position:relative}
+  .bubble{font-size:13px;line-height:1.5;padding:11px 15px;border-radius:14px;max-width:80%}
+  .bubble.u{background:linear-gradient(135deg,rgba(139,92,255,.45),rgba(255,92,176,.32));color:#fff;margin-left:auto;border-bottom-right-radius:4px}
+  .bubble.a{background:rgba(10,11,20,.45);color:#e3e5fb;border:1px solid rgba(255,255,255,.08);border-bottom-left-radius:4px}
+  .typing{display:inline-flex;gap:5px;align-items:center;padding:13px 16px;border-radius:14px;background:rgba(10,11,20,.45);border:1px solid rgba(255,255,255,.08);border-bottom-left-radius:4px;width:max-content}
+  .typing span{width:7px;height:7px;border-radius:50%;background:#b9a6ff;animation:blink 1.4s infinite both}
+  .typing span:nth-child(2){animation-delay:.2s} .typing span:nth-child(3){animation-delay:.4s}
+  @keyframes blink{0%,80%,100%{opacity:.25}40%{opacity:1}}
+  .ah-input{display:flex;gap:9px;align-items:center;background:rgba(10,11,20,.5);border:1px solid rgba(255,255,255,.16);border-radius:13px;padding:8px 8px 8px 16px;position:relative}
+  .ah-input:focus-within{border-color:rgba(139,92,255,.7);box-shadow:0 0 0 3px rgba(139,92,255,.2)}
+  .ah-input input{background:none;border:none;outline:none;flex:1;font-size:13.5px;font-family:inherit;color:var(--ink)}
+  .ah-input input::placeholder{color:var(--muted)}
+  .ah-send{display:grid;place-items:center;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;border:none;width:38px;height:38px;border-radius:10px;cursor:pointer;font-size:17px;box-shadow:0 6px 16px rgba(139,92,255,.45)}
+  .mt{margin-top:18px}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- sidebar (representative; real app = native Streamlit radio + selectbox) -->
+  <aside class="side">
+    <div class="brand"><div class="logo">RI</div> Review Intelligence</div>
+    <nav class="nav">
+      <a class="active" href="#"><svg class="ic" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></svg> Dashboard</a>
+      <a href="#"><svg class="ic" viewBox="0 0 24 24"><path d="M3 7l2-3h6l2 3h6a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V8a1 1 0 0 1 1-1z"/></svg> Manage data</a>
+    </nav>
+    <div>
+      <div class="label">Topics</div>
+      <div class="topics">
+        <div class="t active"><span><span class="dot" style="background:var(--neg)"></span> Zalando UK</span><span>20</span></div>
+        <div class="t"><span><span class="dot" style="background:var(--neg)"></span> Volkswagen US</span><span>20</span></div>
+        <div class="t"><span><span class="dot" style="background:var(--mix)"></span> Notion</span><span>20</span></div>
+        <div class="t"><span><span class="dot" style="background:var(--pos)"></span> Acme Corp</span><span>12</span></div>
+      </div>
+    </div>
+    <div class="foot"><svg class="ic" viewBox="0 0 24 24" style="font-size:14px"><path d="M5 12h14M12 5v14"/></svg> New topic</div>
+  </aside>
+
+  <!-- main -->
+  <main class="main">
+    <div class="topbar">
+      <div>
+        <h1>Zalando UK</h1>
+        <div class="sub"><span class="live"><i></i> Evaluated</span> &middot; 20 reviews &middot; gpt-4o-mini &middot; strictness: standard</div>
+      </div>
+      <div class="controls">
+        <div class="select"><svg class="ic" viewBox="0 0 24 24"><path d="M4 6h16M7 12h10M10 18h4"/></svg> Standard</div>
+        <button class="btn"><svg class="ic" viewBox="0 0 24 24"><path d="M5 3l14 9-14 9z"/></svg> Run evaluation</button>
+      </div>
+    </div>
+
+    <!-- verdict -->
+    <div class="verdict">
+      <div class="vleft">
+        <span class="vlabel"><svg class="ic" viewBox="0 0 24 24"><path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="9"/></svg> Verdict</span>
+        <span class="vtext"><b>Negative.</b> Customers are frustrated with Zalando UK: service and refunds dominate the feedback, with packaging a secondary concern.</span>
+      </div>
+      <div class="vright"><span class="stars">&#9733;&#9733;&#9734;&#9734;&#9734;</span> 1.4/5</div>
+    </div>
+
+    <!-- KPIs -->
+    <div class="grid kpis">
+      <div class="card kpi">
+        <div class="top"><div class="icon" style="background:var(--neg-soft);color:var(--neg)"><svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M8 15s1.5-2 4-2 4 2 4 2M9 9h.01M15 9h.01"/></svg></div><span class="chip neg">Negative</span></div>
+        <div class="k">Negative</div><div class="lbl">Overall sentiment</div>
+      </div>
+      <div class="card kpi">
+        <div class="top"><div class="icon" style="background:var(--mix-soft);color:var(--mix)"><svg class="ic" viewBox="0 0 24 24"><path d="M12 3l2.9 5.9 6.1.9-4.5 4.3 1 6-5.5-2.9L6.5 21l1-6L3 9.8l6.1-.9z"/></svg></div></div>
+        <div class="k">1.4<span style="font-size:15px;color:var(--muted)">/5</span></div>
+        <div class="lbl"><span class="stars">&#9733;&#9733;&#9734;&#9734;&#9734;</span> Average rating</div>
+      </div>
+      <div class="card kpi">
+        <div class="top"><div class="icon" style="background:var(--accent-soft);color:var(--accent)"><svg class="ic" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/></svg></div></div>
+        <div class="k">20</div><div class="lbl">Reviews analyzed</div>
+      </div>
+      <div class="card kpi">
+        <div class="top"><div class="icon" style="background:var(--neg-soft);color:var(--neg)"><svg class="ic" viewBox="0 0 24 24"><path d="M12 3l9 16H3z"/><path d="M12 10v4M12 17h.01"/></svg></div><span class="chip neg">14 mentions</span></div>
+        <div class="k" style="font-size:19px;padding-top:6px">Customer service</div><div class="lbl">Top pain point</div>
+      </div>
+    </div>
+
+    <!-- ===== AGENT HERO ===== -->
+    <div class="sec-h">Ask your data <span class="ln"></span></div>
+    <div class="agent-hero">
+      <div class="ah-head">
+        <div class="ah-ico"><svg class="ic" viewBox="0 0 24 24"><path d="M12 3l1.6 4.9L18.5 9.5 13.6 11 12 16l-1.6-5L5.5 9.5l4.9-1.6z"/><path d="M19 14l.7 2.1L22 17l-2.3.9L19 20l-.7-2.1L16 17l2.3-.9z"/></svg></div>
+        <div>
+          <div class="ah-title">Ask the agent <span class="ai">AI</span></div>
+          <div class="ah-sub">Conversational evaluation over this topic. It remembers the thread and runs real evaluations.</div>
+        </div>
+      </div>
+      <div class="qchips">
+        <span class="qchip"><svg class="ic" viewBox="0 0 24 24"><path d="M3 12h18M3 6h18M3 18h12"/></svg> Biggest problem?</span>
+        <span class="qchip"><svg class="ic" viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg> Anything positive?</span>
+        <span class="qchip"><svg class="ic" viewBox="0 0 24 24"><path d="M3 17l6-6 4 4 7-7"/></svg> Is sentiment improving?</span>
+        <span class="qchip"><svg class="ic" viewBox="0 0 24 24"><path d="M4 6h16M4 12h10M4 18h7"/></svg> Summarise in one line</span>
+      </div>
+      <div class="thread">
+        <div class="bubble u">What is the single biggest problem for Zalando UK?</div>
+        <div class="bubble a">Customer service is the dominant pain point, named in 14 of 20 reviews: slow refunds, repeated requests for the same documents, and unhelpful responses. Packaging and item condition are secondary.</div>
+        <div class="bubble u">Anything positive?</div>
+        <div class="typing"><span></span><span></span><span></span></div>
+      </div>
+      <div class="ah-input"><input placeholder="Ask anything about Zalando UK..."><button class="ah-send"><svg class="ic" viewBox="0 0 24 24" style="font-size:18px"><path d="M12 19V5M5 12l7-7 7 7"/></svg></button></div>
+    </div>
+
+    <!-- charts -->
+    <div class="sec-h">Breakdown <span class="ln"></span></div>
+    <div class="grid row2">
+      <div class="card">
+        <h3><svg class="ic" viewBox="0 0 24 24" style="color:var(--accent)"><path d="M12 2a10 10 0 1 0 10 10"/><path d="M12 12V2a10 10 0 0 1 10 10z"/></svg> Sentiment breakdown</h3><p class="hint">Share of reviews by overall tone</p>
+        <div class="donut-wrap">
+          <div class="donut"><div class="center"><b>80%</b><span>negative</span></div></div>
+          <div class="legend">
+            <div class="li"><span class="sw" style="background:var(--neg)"></span> Negative <b>80%</b></div>
+            <div class="li"><span class="sw" style="background:var(--mix)"></span> Mixed <b>10%</b></div>
+            <div class="li"><span class="sw" style="background:var(--pos)"></span> Positive <b>10%</b></div>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <h3><svg class="ic" viewBox="0 0 24 24" style="color:var(--accent)"><path d="M4 20V10M10 20V4M16 20v-8M22 20H2"/></svg> Rating distribution</h3><p class="hint">How the 20 reviews score the brand</p>
+        <div class="bars">
+          <div class="bar"><span class="lab">5&#9733;</span><div class="track"><div class="fill" style="width:8%"></div></div><span class="val">1</span></div>
+          <div class="bar"><span class="lab">4&#9733;</span><div class="track"><div class="fill" style="width:8%"></div></div><span class="val">1</span></div>
+          <div class="bar"><span class="lab">3&#9733;</span><div class="track"><div class="fill" style="width:16%"></div></div><span class="val">2</span></div>
+          <div class="bar"><span class="lab">2&#9733;</span><div class="track"><div class="fill" style="width:24%"></div></div><span class="val">3</span></div>
+          <div class="bar"><span class="lab">1&#9733;</span><div class="track"><div class="fill" style="width:84%"></div></div><span class="val">13</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid row3 mt">
+      <div class="card">
+        <h3 style="color:var(--neg)"><svg class="ic" viewBox="0 0 24 24"><path d="M12 3l9 16H3z"/><path d="M12 10v4M12 17h.01"/></svg> Top pain points</h3><p class="hint">Recurring negative themes</p>
+        <div class="themes">
+          <div class="theme"><div class="h">Customer service <span>14</span></div><div class="track"><div class="fill" style="width:90%;background:var(--neg)"></div></div></div>
+          <div class="theme"><div class="h">Refund &amp; returns process <span>11</span></div><div class="track"><div class="fill" style="width:72%;background:var(--neg)"></div></div></div>
+          <div class="theme"><div class="h">Packaging quality <span>7</span></div><div class="track"><div class="fill" style="width:48%;background:var(--neg)"></div></div></div>
+          <div class="theme"><div class="h">Item condition <span>5</span></div><div class="track"><div class="fill" style="width:34%;background:var(--neg)"></div></div></div>
+        </div>
+      </div>
+      <div class="card">
+        <h3 style="color:var(--pos)"><svg class="ic" viewBox="0 0 24 24"><path d="M7 11v9M7 11l4-7a2 2 0 0 1 3 2l-1 5h5a2 2 0 0 1 2 2.4l-1.5 6A2 2 0 0 1 16.5 22H7"/></svg> Positive drivers</h3><p class="hint">What the few happy customers mention</p>
+        <div class="themes">
+          <div class="theme"><div class="h">Product selection <span>4</span></div><div class="track"><div class="fill" style="width:40%;background:var(--pos)"></div></div></div>
+          <div class="theme"><div class="h">Fast delivery <span>3</span></div><div class="track"><div class="fill" style="width:30%;background:var(--pos)"></div></div></div>
+          <div class="theme"><div class="h">Easy checkout <span>2</span></div><div class="track"><div class="fill" style="width:20%;background:var(--pos)"></div></div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- reviews -->
+    <div class="sec-h">Recent reviews <span class="ln"></span></div>
+    <div class="card">
+      <div class="review">
+        <div class="avatar" style="background:#f0476b">A</div>
+        <div>
+          <div class="who">Anka 88 <span class="chip neg" style="margin-left:6px">Negative</span></div>
+          <div class="meta">Dec 10, 2025 &middot; Google &middot; 1&#9733;</div>
+          <p>Extremely disappointing. The handbag arrived in terrible packaging, and support sent an automatic return label instead of helping.</p>
+        </div>
+      </div>
+      <div class="review">
+        <div class="avatar" style="background:#7c5cff">S</div>
+        <div>
+          <div class="who">Silvana Mak <span class="chip neg" style="margin-left:6px">Negative</span></div>
+          <div class="meta">Nov 7, 2025 &middot; Google &middot; 1&#9733;</div>
+          <p>Over two months chasing a refund. Generic responses, no accountability, repeatedly asked to resend the same documents.</p>
+        </div>
+      </div>
+      <div class="review">
+        <div class="avatar" style="background:#15b886">F</div>
+        <div>
+          <div class="who">Faizah Haider <span class="chip neg" style="margin-left:6px">Negative</span></div>
+          <div class="meta">Jan 12 &middot; Google &middot; 2&#9733;</div>
+          <p>Shoes arrived worn and dirty. Told to return for inspection with no exchange or partial refund, losing the sale price.</p>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+</body>
+</html>
