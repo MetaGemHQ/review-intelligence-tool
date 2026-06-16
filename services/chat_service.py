@@ -97,18 +97,22 @@ TOOLS = [EVALUATE_TOOL, FIND_TOPICS_TOOL]
 
 
 def _run_evaluate(topic_id):
-    """Invoke the evaluation flow and shape a result the model can summarise."""
+    """Invoke the evaluation flow and shape a result the model can summarise.
+
+    Returns a dict {"result", "payload"}: "result" is the full evaluation
+    (or None on failure) and "payload" is the model-facing summary.
+    """
     try:
         result = evaluation_service.evaluate_topic(topic_id)
     except ValidationError as e:
-        return None, {"ok": False, "error": str(e)}
+        return {"result": None, "payload": {"ok": False, "error": str(e)}}
     payload = {
         "ok": True,
         "topic_name": result["topic_name"],
         "review_count": result["review_count"],
         "evaluation": result["evaluation"],
     }
-    return result, payload
+    return {"result": result, "payload": payload}
 
 
 def _find_topics(name):
@@ -129,32 +133,47 @@ def _find_topics(name):
 
 
 def _dispatch_tool(name, args):
-    """Run one tool call and return the JSON-string result, any evaluation, and
-    the topic resolved this turn (id + name): the evaluated topic, or a single
-    name match. Persisting a single match lets a follow-up "yes" evaluate that
-    exact id instead of re-resolving by name and risking the wrong topic."""
+    """Run one tool call.
+
+    Returns a dict {"content", "evaluation", "resolved"}: "content" is the
+    JSON-string tool result fed back to the model, "evaluation" is the raw
+    evaluation if one was produced (else None), and "resolved" is the topic
+    settled this turn as {id, name} (the evaluated topic, or a single name
+    match) or None. Persisting a single match lets a follow-up "yes" evaluate
+    that exact id instead of re-resolving by name and risking the wrong topic.
+    """
     if name == "evaluate_topic":
         topic_id = args.get("topic_id")
-        result, payload = _run_evaluate(topic_id)
+        outcome = _run_evaluate(topic_id)
+        result = outcome["result"]
         evaluation = result["evaluation"] if result else None
         resolved = {"id": topic_id, "name": result["topic_name"]} if result else None
-        return json.dumps(payload), evaluation, resolved
+        return {
+            "content": json.dumps(outcome["payload"]),
+            "evaluation": evaluation,
+            "resolved": resolved,
+        }
     if name == "find_topics_by_name":
         res = _find_topics(args.get("name"))
         cands = res.get("candidates", [])
         resolved = {"id": cands[0]["id"], "name": cands[0]["name"]} if len(cands) == 1 else None
-        return json.dumps(res), None, resolved
-    return json.dumps({"error": f"unknown tool: {name}"}), None, None
+        return {"content": json.dumps(res), "evaluation": None, "resolved": resolved}
+    return {
+        "content": json.dumps({"error": f"unknown tool: {name}"}),
+        "evaluation": None,
+        "resolved": None,
+    }
 
 
 def _run_turn(messages):
     """Run one agent turn over a full message list (system + prior turns).
 
     Loops: the model may call tools (look up a topic, then evaluate it), and we
-    feed each tool result back until it returns a plain-text reply. Returns
-    (reply_text, tool_used, evaluation, verified_topic). verified_topic is the
-    {id, name} of the last topic evaluated this turn, or None. The tool-plumbing
-    messages are transient to this call and are not part of what callers persist.
+    feed each tool result back until it returns a plain-text reply. Returns a
+    dict {"reply", "tool_used", "evaluation", "verified_topic"}; "verified_topic"
+    is the {id, name} of the last topic evaluated this turn, or None. The
+    tool-plumbing messages are transient to this call and are not part of what
+    callers persist.
     """
     client = get_client()
     convo = list(messages)
@@ -174,7 +193,12 @@ def _run_turn(messages):
         tool_calls = choice.tool_calls or []
 
         if not tool_calls:
-            return choice.content, tool_used, evaluation, verified_topic
+            return {
+                "reply": choice.content,
+                "tool_used": tool_used,
+                "evaluation": evaluation,
+                "verified_topic": verified_topic,
+            }
 
         tool_used = True
         convo.append(
@@ -196,18 +220,25 @@ def _run_turn(messages):
         )
         for c in tool_calls:
             args = json.loads(c.function.arguments or "{}")
-            content, this_eval, evaluated = _dispatch_tool(c.function.name, args)
-            if this_eval is not None:
-                evaluation = this_eval
-            if evaluated is not None:
-                verified_topic = evaluated
-            convo.append({"role": "tool", "tool_call_id": c.id, "content": content})
+            outcome = _dispatch_tool(c.function.name, args)
+            if outcome["evaluation"] is not None:
+                evaluation = outcome["evaluation"]
+            if outcome["resolved"] is not None:
+                verified_topic = outcome["resolved"]
+            convo.append(
+                {"role": "tool", "tool_call_id": c.id, "content": outcome["content"]}
+            )
 
     # Safety net: tool loop did not converge; force a plain reply without tools.
     final = client.chat.completions.create(
         model=CHAT_MODEL, messages=convo, temperature=TEMPERATURE
     )
-    return final.choices[0].message.content, tool_used, evaluation, verified_topic
+    return {
+        "reply": final.choices[0].message.content,
+        "tool_used": tool_used,
+        "evaluation": evaluation,
+        "verified_topic": verified_topic,
+    }
 
 
 def chat(message):
@@ -215,8 +246,12 @@ def chat(message):
         {"role": "system", "content": SYSTEM_PROMPT},
         {"role": "user", "content": message},
     ]
-    reply, tool_used, evaluation, _ = _run_turn(messages)
-    return {"reply": reply, "tool_used": tool_used, "evaluation": evaluation}
+    turn = _run_turn(messages)
+    return {
+        "reply": turn["reply"],
+        "tool_used": turn["tool_used"],
+        "evaluation": turn["evaluation"],
+    }
 
 
 def _verified_topic_note(thread):
@@ -263,7 +298,11 @@ def chat_threaded(thread_id, message):
             {"role": row["role"], "content": row["content"]} for row in history
         ]
 
-        reply, tool_used, evaluation, verified_topic = _run_turn(messages)
+        turn = _run_turn(messages)
+        reply = turn["reply"]
+        tool_used = turn["tool_used"]
+        evaluation = turn["evaluation"]
+        verified_topic = turn["verified_topic"]
 
         chat_repo.save_message(conn, thread_id, "assistant", reply or "")
         if verified_topic is not None:
